@@ -1,0 +1,11 @@
+####################
+## ACKNOWLEDGMENT ##
+####################
+
+Thanks to Dimitri Diakopoulos, tinyply-2.0 is available at github for public
+usage. It is a simple, fast and light-weight ply parser written in C++ language,
+which I used to parse input files for my ray tracer.
+
+Profile: https://github.com/ddiakopoulos
+Repo: https://github.com/ddiakopoulos/tinyply
+Downloaded date: 04/03/18
