@@ -1,4 +1,10 @@
 #include "../headers/material.hpp"
+#include "../headers/brdf.hpp"
+
+BRDF Material::getBRDF() const
+{
+    return this->brdf;
+}
 
 Vector3 Material::getAmbient() const
 {
@@ -38,6 +44,12 @@ float Material::getRefractionIndex() const
 float Material::getRoughness() const
 {
     return this->roughness;
+}
+
+
+void Material::setBRDF(const BRDF& brdf)
+{
+    this->brdf = brdf;
 }
 
 void Material::setAmbient(const Vector3& ambient)

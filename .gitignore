@@ -28,3 +28,9 @@
 *.app
 
 source/\.vscode/
+
+files/
+
+\.vscode/
+
+raytracer

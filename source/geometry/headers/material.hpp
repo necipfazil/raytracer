@@ -2,10 +2,13 @@
 #define __MATERIAL_H__
 
 #include "vector3.hpp"
+#include "brdf.hpp"
 
 class Material
 {
     private:
+        BRDF brdf;
+
         Vector3 ambient;
         Vector3 diffuse;
         Vector3 specular;
@@ -16,8 +19,9 @@ class Material
         float roughness;
 
     public:
-        Material() : phongExponent(0.f), refractionIndex(1.f), roughness(0.f) {}
+        Material() : phongExponent(0.f), refractionIndex(1.f), roughness(0.f) { brdf.setMode(BRDF::Mode::DEFAULT); }
 
+        BRDF getBRDF() const;
         Vector3 getAmbient() const;
         Vector3 getDiffuse() const;
         Vector3 getSpecular() const;
@@ -27,6 +31,7 @@ class Material
         float getRefractionIndex() const;
         float getRoughness() const;
 
+        void setBRDF(const BRDF& brdf);
         void setAmbient(const Vector3& ambient);
         void setDiffuse(const Vector3& diffuse);
         void setSpecular(const Vector3& specular);

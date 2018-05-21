@@ -449,11 +449,25 @@ Color parseBackgroundColor(tinyxml2::XMLElement* element)
     return backgroundColor;
 }
 
-Material parseMaterial(tinyxml2::XMLElement* element)
+Material parseMaterial(tinyxml2::XMLElement* element, const std::vector<BRDF>& brdfs)
 {
     std::stringstream stream;
 
     Material material;
+
+        // read BRDF id
+    int brdfId = -1;
+    element->QueryAttribute("BRDF", &brdfId);
+
+    if(brdfId != -1)
+    {
+        brdfId--; // 0-index
+
+        std::cout << "BRDF id: " << brdfId << std::endl;
+
+        // set brdf
+        material.setBRDF(brdfs[brdfId]);
+    }
         
         // read ambient reflectance
     auto child = element->FirstChildElement("AmbientReflectance");
@@ -787,6 +801,8 @@ void Scene::loadFromXml(const std::string& filepath)
     std::vector<Rotation> rotations;
     std::vector<Texture*> textures; // to be cleaned after required assignments
     std::vector<Vec2i> texCoordData;
+
+    std::vector<BRDF> brdfs;
     
     auto res = file.LoadFile(filepath.data());
     if (res)
@@ -943,7 +959,7 @@ void Scene::loadFromXml(const std::string& filepath)
             brdf.setMode(BRDF::Mode::PHONG);
 
             // push to brdfs vector
-            this->brdfs.push_back(brdf);
+            brdfs.push_back(brdf);
             
             child = child->NextSiblingElement("OriginalPhong");
         }
@@ -958,7 +974,7 @@ void Scene::loadFromXml(const std::string& filepath)
             brdf.setMode(BRDF::Mode::PHONG_MODIFIED);
 
             // push to brdfs vector
-            this->brdfs.push_back(brdf);
+            brdfs.push_back(brdf);
             
             child = child->NextSiblingElement("ModifiedPhong");
         }
@@ -973,7 +989,7 @@ void Scene::loadFromXml(const std::string& filepath)
             brdf.setMode(BRDF::Mode::BLINNPHONG);
 
             // push to brdfs vector
-            this->brdfs.push_back(brdf);
+            brdfs.push_back(brdf);
             
             child = child->NextSiblingElement("OriginalBlinnPhong");
         }
@@ -988,12 +1004,12 @@ void Scene::loadFromXml(const std::string& filepath)
             brdf.setMode(BRDF::Mode::BLINNPHONG_MODIFIED);
 
             // push to brdfs vector
-            this->brdfs.push_back(brdf);
+            brdfs.push_back(brdf);
             
             child = child->NextSiblingElement("ModifiedBlinnPhong");
         }
     }
-exit(0);
+
     //
     // Materials
     //
@@ -1002,7 +1018,7 @@ exit(0);
     
     while (element)
     {
-        this->materials.push_back(parseMaterial(element));
+        this->materials.push_back(parseMaterial(element, brdfs));
 
         // read next material sibling
         element = element->NextSiblingElement("Material");
