@@ -10,6 +10,7 @@
 #include "geometry/headers/transformation.hpp"
 #include "geometry/headers/directional_light.hpp"
 #include "geometry/headers/spot_light.hpp"
+#include "geometry/headers/brdf.hpp"
 #include <string>
 
 class Scene
@@ -27,6 +28,7 @@ class Scene
         std::vector<AreaLight> areaLights;
         std::vector<DirectionalLight> directionalLights;
         std::vector<SpotLight> spotLights;
+        std::vector<BRDF> brdfs;
         std::vector<Material> materials;
         std::vector<Vertex> vertexData;
 

@@ -5,6 +5,7 @@
 #include "../geometry/headers/transformation.hpp"
 #include "../geometry/headers/texture.hpp"
 #include "../geometry/headers/spot_light.hpp"
+#include "../geometry/headers/brdf.hpp"
 #include "../image/image.hpp"
 #include "../utility/ply_parser.hpp"
 #include "../utility/pair.hpp"
@@ -216,6 +217,22 @@ ToneMappingParam parseToneMapping(tinyxml2::XMLElement* element)
     }
 
     return tmParam;
+}
+
+// Does not set mode of the BRDF
+BRDF parseBRDF(tinyxml2::XMLElement* element)
+{
+    BRDF brdf;
+
+    // exponent
+    if(doesHaveChild(element, "Exponent"))
+        brdf.setExponent( parseChild<float>(element, "Exponent") );
+
+    // isNormalized
+    const char* normalized = element->Attribute("normalized");
+    brdf.setNormalized(normalized && normalized[0] == 't');
+
+    return brdf;
 }
 
 Camera parseCamera(tinyxml2::XMLElement* element)
@@ -909,6 +926,74 @@ void Scene::loadFromXml(const std::string& filepath)
         element = element->NextSiblingElement("SpotLight");
     }
 
+    //
+    // BRDFs
+    //
+    element = root->FirstChildElement("BRDFs");
+
+    if(element)
+    {
+        // OriginalPhong
+        auto child = element->FirstChildElement("OriginalPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::PHONG);
+
+            // push to brdfs vector
+            this->brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("OriginalPhong");
+        }
+        
+        // ModifiedPhong
+        child = element->FirstChildElement("ModifiedPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::PHONG_MODIFIED);
+
+            // push to brdfs vector
+            this->brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("ModifiedPhong");
+        }
+
+        // OriginalBlinnPhong
+        child = element->FirstChildElement("OriginalBlinnPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::BLINNPHONG);
+
+            // push to brdfs vector
+            this->brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("OriginalBlinnPhong");
+        }
+
+        // ModifiedBlinnPhong
+        child = element->FirstChildElement("ModifiedBlinnPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::BLINNPHONG_MODIFIED);
+
+            // push to brdfs vector
+            this->brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("ModifiedBlinnPhong");
+        }
+    }
+exit(0);
     //
     // Materials
     //
