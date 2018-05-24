@@ -39,6 +39,7 @@ struct HitInfo
     Material material;
     TextureInfo textureInfo;
     float t;
+    float time = 0.f;
 };
 
 #endif
