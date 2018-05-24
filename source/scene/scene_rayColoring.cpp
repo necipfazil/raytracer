@@ -5,177 +5,44 @@
 #include "../image/image.hpp"
 #include "../utility/concurrent_bag.hpp"
 #include "../utility/pixel_mission_generator.hpp"
-#include "../geometry/headers/directional_light.hpp"
 #include <forward_list>
 #include <cmath>
 
-// point light
-Color Scene::getDiffuseColor(const Material & material, const HitInfo & hitInfo, const PointLight & pointLight)
-{ 
-    // hit to light
-    Vector3 hit2light = pointLight.getPosition() - hitInfo.hitPosition;
-                        
-    // distanceSquare
-    float distanceSq = hit2light ^ hit2light;
+Color Scene::getDiffuseColor(const Material & material, const HitInfo & hitInfo, const IncidentLight& incidentLight) const // const HitInfo & hitInfo, const Light & light) const
+{    
+    if(incidentLight.inShadow)
+        return Color::Black();
 
-    // intensity
-    Vector3 intensity = pointLight.getIntensity() / distanceSq;
+    float normalDotLight = (hitInfo.normal ^ incidentLight.hitToLightDirection);
 
-    hit2light.normalize();
-    
-    float normalDotLight = (hitInfo.normal ^ hit2light);
-    
-    if(normalDotLight < 0.0f)
-        normalDotLight = 0.0f;
-        
-    Color diffuseColor = Color(material.getDiffuse().intensify(intensity) * normalDotLight);
+    if(normalDotLight < 0.f)
+        normalDotLight = 0.f;
+
+    Color diffuseColor = Color(material.getDiffuse().intensify(incidentLight.intensity) * normalDotLight);
 
     return diffuseColor;
 }
 
-// spot light
-Color Scene::getDiffuseColor(const Material & material, const HitInfo & hitInfo, const SpotLight & spotLight)
+
+Color Scene::getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const IncidentLight& incidentLight) const
 {
-    // intensity
-    Vector3 intensity = spotLight.getIntensity(hitInfo.hitPosition);
-    
-    Vector3 hit2light = hitInfo.hitPosition.to(spotLight.getPosition()).normalize();
+    if(incidentLight.inShadow)
+        return Color::Black();
 
-    float normalDotLight = (hitInfo.normal ^ hit2light);
-    
-    if(normalDotLight < 0.0f)
-        normalDotLight = 0.0f;
-        
-    Color diffuseColor = Color(material.getDiffuse().intensify(intensity) * normalDotLight);
-
-    return diffuseColor;
-}
-
-// directional light
-Color Scene::getDiffuseColor(const Material & material, const HitInfo & hitInfo, const DirectionalLight & dirLight)
-{   
-    float normalDotLight = hitInfo.normal ^ dirLight.getReverseDirection();
-    
-    if(normalDotLight < 0.0f)
-        normalDotLight = 0.0f;
-    
-    Color diffuseColor = Color(material.getDiffuse().intensify(dirLight.getRadiance()) * normalDotLight);
-
-    return diffuseColor;
-}
-
-// directional light
-Color Scene::getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const DirectionalLight & dirLight)
-{
-    Vector3 l = dirLight.getReverseDirection();
-    Vector3 intensity = dirLight.getRadiance();
-    
-    Vector3 h = (( -ray.getDirection()) + l ).normalize();
+    Vector3 h = (( -ray.getDirection()) + incidentLight.hitToLightDirection ).normalize();
     
     float max = hitInfo.normal ^ h;
     max = max < 0.0f ? 0.0f : max;
     max = pow(max, material.getPhongExponent());
     
-    Vector3 colorVector = material.getSpecular().intensify(intensity) * max;
+    Vector3 colorVector = material.getSpecular().intensify(incidentLight.intensity) * max;
     
     return Color(colorVector);
 }
 
-// point light
-Color Scene::getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const PointLight & pointLight)
-{
-    Vector3 hit2light = hitInfo.hitPosition.to(pointLight.getPosition());
-    float distanceSq = hit2light ^ hit2light;
-    
-    Vector3 l = hit2light;
-    l.normalize();
-    
-    Vector3 intensity = pointLight.getIntensity() / distanceSq;
-    
-    Vector3 h = (( -ray.getDirection()) + l ).normalize();
-    
-    float max = hitInfo.normal ^ h;
-    max = max < 0.0f ? 0.0f : max;
-    max = pow(max, material.getPhongExponent());
-    
-    Vector3 colorVector = material.getSpecular().intensify(intensity) * max;
-    
-    return Color(colorVector);
-}
-
-// spot light
-Color Scene::getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const SpotLight & spotLight)
-{
-    Vector3 l = hitInfo.hitPosition.to(spotLight.getPosition()).normalize();
-    
-    Vector3 intensity = spotLight.getIntensity(hitInfo.hitPosition);
-    
-    Vector3 h = (( -ray.getDirection()) + l ).normalize();
-    
-    float max = hitInfo.normal ^ h;
-    max = max < 0.0f ? 0.0f : max;
-    max = pow(max, material.getPhongExponent());
-    
-    Vector3 colorVector = material.getSpecular().intensify(intensity) * max;
-    
-    return Color(colorVector);
-}
-
-Color Scene::getAmbientColor(const Material & material, const Vector3 & ambientLight)
+Color Scene::getAmbientColor(const Material & material, const Vector3 & ambientLight) const
 {
     return Color(ambientLight.intensify(material.getAmbient()));
-}
-
-// for point light
-bool Scene::isLyingInShadow(const Position3 & hitPosition, const Position3 & lightPosition, float time) const
-{
-    // first, create the shadow ray
-    Ray shadowRay(hitPosition, hitPosition.to(lightPosition));
-
-    // set time for ray creation
-    shadowRay.setTimeCreated(time);
-    
-    // move ray's origin with epsilon
-    shadowRay.translateRayOrigin(this->shadowRayEpsilon);
-
-    HitInfo shadowRayHitInfo;
-    // epsilon
-    if( this->BVH->hit(shadowRay, shadowRayHitInfo, true) )
-    {   
-        float hitPointToLightT = shadowRay.getTValue(lightPosition);
-        
-        if(hitPointToLightT < shadowRayHitInfo.t)
-        {
-            // cheers! point is closer to us
-            return false;
-        }
-        else
-        {
-            // in shadow..
-            return true;
-        }
-    }
-    else
-    {
-        return false;
-    }
-}
-
-// for directional light
-bool Scene::isLyingInShadow(const Position3 & hitPosition, const DirectionalLight & dirLight, float time) const
-{
-    // create shadow ray
-    Ray shadowRay(hitPosition, dirLight.getReverseDirection());
-
-    // set time for ray creation
-    shadowRay.setTimeCreated(time);
-    
-    // move ray's origin with epsilon
-    shadowRay.translateRayOrigin(this->shadowRayEpsilon);
-
-    HitInfo shadowRayHitInfo;
-
-    return this->BVH->hit(shadowRay, shadowRayHitInfo, true);
 }
 
 Color Scene::getReflectionColor(const Ray & ray, const HitInfo & hitInfo, int recursionDepth) const
@@ -326,72 +193,29 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
 
             // ambient
             color += getAmbientColor(material, this->ambientLight);
-            
-            // traverse point lights
-            for(int p = 0; p < this->pointLights.size(); p++ )
+
+            // diffuse and specular
+            if(shapeIsFacing)
             {
-                const PointLight & pointLight = this->pointLights[p];
-                
-                // if light is not seenable, continue
-                if(shapeIsFacing && !isLyingInShadow(hitInfo.hitPosition, pointLight.getPosition(), ray.getTimeCreated()) )
+                // traverse lights
+                for(int i = 0; i < this->lights.size(); i++)
                 {
-                    // diffuse
-                    color += getDiffuseColor(material, hitInfo, pointLight);
-                    
-                    if((hitInfo.normal ^ ray.getDirection()) < 0)
-                    // specular
-                    color += getSpecular(ray, material, hitInfo, pointLight);
+                    // get incident light
+                    IncidentLight incidentLight = lights[i]->getIncidentLight(*this, hitInfo.hitPosition, ray.getTimeCreated());
+
+                    // if not in shadow
+                    if(!incidentLight.inShadow)
+                    {
+                        // diffuse
+                        color += getDiffuseColor(material, hitInfo, incidentLight);
+                        
+                        // specular
+                        if((hitInfo.normal ^ ray.getDirection()) < 0)
+                            color += getSpecular(ray, material, hitInfo, incidentLight);
+                    }
                 }
             }
 
-            // traverse area lights
-            for(int a = 0; a < this->areaLights.size(); a++ )
-            {
-                // get an instance of pointlight from arealight
-                const PointLight pointLight = this->areaLights[a].getPointLight(hitInfo.hitPosition);
-                
-                // if light is not seenable, continue
-                if(shapeIsFacing && !isLyingInShadow(hitInfo.hitPosition, pointLight.getPosition(), ray.getTimeCreated()) )
-                {
-                    // diffuse
-                    color += getDiffuseColor(material, hitInfo, pointLight);
-                    
-                    if((hitInfo.normal ^ ray.getDirection()) < 0)
-                    // specular
-                    color += getSpecular(ray, material, hitInfo, pointLight);
-                }
-            }
-
-            // traverse directional lights
-            for(int d = 0; d < this->directionalLights.size(); d++)
-            {
-                const DirectionalLight & dirLight = this->directionalLights[d];
-
-                if(shapeIsFacing && !isLyingInShadow(hitInfo.hitPosition, dirLight, ray.getTimeCreated()))
-                {
-                    // diffuse
-                    color += getDiffuseColor(material, hitInfo, dirLight);
-
-                    // specular
-                    color += getSpecular(ray, material, hitInfo, dirLight);
-                }
-            }
-
-            // traverse spot lights
-            for(int s = 0; s < this->spotLights.size(); s++)
-            {
-                const SpotLight& spotLight = this->spotLights[s];
-
-                if(shapeIsFacing && !isLyingInShadow(hitInfo.hitPosition, spotLight.getPosition(), ray.getTimeCreated()))
-                {
-                    // diffuse
-                    color += getDiffuseColor(material, hitInfo, spotLight);
-
-                    // specular
-                    color += getSpecular(ray, material, hitInfo, spotLight);
-                }
-            }
-            
             // reflection
                 // check if it has mirrorish material 
             if(!material.getMirror().isZeroVector())
@@ -411,9 +235,8 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
                 
                 color += refractionColor;
             }
-            
         }
-        
+
         return color;           
     }
     else

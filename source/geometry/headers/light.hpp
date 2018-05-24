@@ -7,8 +7,9 @@
 class Scene;
 
 struct IncidentLight {
+    bool inShadow;
     Vector3 intensity;
-    Vector3 direction;
+    Vector3 hitToLightDirection;
 };
 
 class Light

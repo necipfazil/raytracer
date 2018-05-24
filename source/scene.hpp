@@ -8,8 +8,7 @@
 #include "utility/pixel_mission_generator.hpp"
 #include "filemanip/tinyxml2.h"
 #include "geometry/headers/transformation.hpp"
-#include "geometry/headers/directional_light.hpp"
-#include "geometry/headers/spot_light.hpp"
+#include "geometry/headers/light.hpp"
 #include "geometry/headers/brdf.hpp"
 #include <string>
 
@@ -24,10 +23,7 @@ class Scene
         int maxRecursionDepth;
         
         std::vector<Camera> cameras;
-        std::vector<PointLight> pointLights;
-        std::vector<AreaLight> areaLights;
-        std::vector<DirectionalLight> directionalLights;
-        std::vector<SpotLight> spotLights;
+        std::vector<Light*> lights;
         std::vector<Material> materials;
         std::vector<Vertex> vertexData;
 
@@ -42,22 +38,12 @@ class Scene
 
         Ray createRefractionRay(const Ray & hittingRay, const HitInfo & hitInfo) const;
 
-        bool isLyingInShadow(const Position3 & hitPosition, const Position3& lightPosition, float time) const;
-        bool isLyingInShadow(const Position3 & hitPosition, const DirectionalLight & dirLight, float time) const;
+        // new methods
+        Color getDiffuseColor(const Material & material, const HitInfo & hitInfo, const IncidentLight& incidentLight) const;
+        Color getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const IncidentLight& incidentLight) const;
 
-        // point light color computations
-        static Color getDiffuseColor(const Material & material, const HitInfo & hitInfo, const PointLight & pointLight);
-        static Color getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const PointLight & pointLight);
-        static Color getAmbientColor(const Material & material, const Vector3 & ambientLight);
+        Color getAmbientColor(const Material & material, const Vector3 & ambientLight) const;
 
-        // directional light color computations
-        static Color getDiffuseColor(const Material & material, const HitInfo & hitInfo, const DirectionalLight & dirLight);
-        static Color getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const DirectionalLight & dirLight);
-        
-        // spot light color computations
-        static Color getDiffuseColor(const Material & material, const HitInfo & hitInfo, const SpotLight & spotLight);
-        static Color getSpecular(const Ray & ray, const Material & material, const HitInfo & hitInfo, const SpotLight & spotLight);
-        
         #ifdef __CONCURRENT_BAG_TASK_DIST__
         static void imageFiller(Camera * camera, Image * image, Scene * scene, ConcurrentBag<Vec2i> * missionsBag);
         #else
@@ -67,15 +53,30 @@ class Scene
         
         ~Scene()
         {
+            // BVH
             if(BVH)
             {
                 delete BVH;
-                BVH = NULL;
+                BVH = nullptr;
             }
+
+            // lights
+            for(int i = 0; i < lights.size(); i++)
+            {
+                if(lights[i])
+                    delete lights[i];
+
+                lights[i] = nullptr;    
+            }
+
+            lights.clear();
         }
         
         void loadFromXml(const std::string& filepath);
         void generateImages(unsigned short numberOfThreads);
+
+        float getShadowRayEpsilon() const { return this->shadowRayEpsilon; }
+        Shape* getBVH() const { return this->BVH; }
 };
 
 #endif

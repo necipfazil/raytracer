@@ -4,7 +4,11 @@
 #include "../geometry/headers/geometry.hpp"
 #include "../geometry/headers/transformation.hpp"
 #include "../geometry/headers/texture.hpp"
+#include "../geometry/headers/light.hpp"
+#include "../geometry/headers/pointlight.hpp"
+#include "../geometry/headers/arealight.hpp"
 #include "../geometry/headers/spot_light.hpp"
+#include "../geometry/headers/directional_light.hpp"
 #include "../geometry/headers/brdf.hpp"
 #include "../image/image.hpp"
 #include "../utility/ply_parser.hpp"
@@ -888,7 +892,9 @@ void Scene::loadFromXml(const std::string& filepath)
     element = element->FirstChildElement("PointLight");
     while (element)
     {
-        this->pointLights.push_back(parsePointLight(element));
+        Light* light = (Light*) new PointLight(parsePointLight(element));
+        this->lights.push_back(light);
+        //this->pointLights.push_back(parsePointLight(element));
 
         // read the next point light sibling
         element = element->NextSiblingElement("PointLight");
@@ -900,7 +906,10 @@ void Scene::loadFromXml(const std::string& filepath)
     element = element->FirstChildElement("AreaLight");
     while (element)
     {
-        this->areaLights.push_back(parseAreaLight(element));
+        Light* light = (Light*) new AreaLight(parseAreaLight(element));
+        this->lights.push_back(light);
+
+        //this->areaLights.push_back(parseAreaLight(element));
 
         // read the next area light sibling
         element = element->NextSiblingElement("AreaLight");
@@ -924,7 +933,10 @@ void Scene::loadFromXml(const std::string& filepath)
             radiance = parseChild<Vector3>(element, "Radiance");
         }
 
-        this->directionalLights.push_back(DirectionalLight(direction, radiance));
+        Light* light = (Light*) new DirectionalLight(direction, radiance);
+        this->lights.push_back(light);
+
+        //this->directionalLights.push_back(DirectionalLight(direction, radiance));
 
         // read the next sibling
         element = element->NextSiblingElement("DirectionalLight");
@@ -936,7 +948,10 @@ void Scene::loadFromXml(const std::string& filepath)
     element = element->FirstChildElement("SpotLight");
     while(element)
     {
-        this->spotLights.push_back(parseSpotLight(element));
+        Light* light = (Light*) new SpotLight(parseSpotLight(element));
+        this->lights.push_back(light);
+
+        //this->spotLights.push_back(parseSpotLight(element));
 
         // read the next sibling
         element = element->NextSiblingElement("SpotLight");
