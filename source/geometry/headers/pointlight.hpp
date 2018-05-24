@@ -5,17 +5,24 @@
 #include "position3.hpp"
 #include "vector3.hpp"
 
+class Scene;
+
 class PointLight : public Light
 {
+    private:
+        Position3 position;
+        Vector3 intensity;
     public:
         PointLight(const Position3& position, const Vector3& intensity)
-            : Light(position, intensity) { }
-    //public:
-        //Position3 getPosition() const { return this->position; }
-        //Vector3 getIntensity() const { return this->intensity; }
+            : position(position), intensity(intensity) { }
 
-        //void setPosition(const Position3& position) { this->position = position; }
-        //void setIntensity(const Vector3& intensity) { this->intensity = intensity; }
+        Position3 getPosition() const { return this->position; }
+        Vector3 getIntensity() const { return this->intensity; }
+
+        void setPosition(const Position3& position) { this->position = position; }
+        void setIntensity(const Vector3& intensity) { this->intensity = intensity; }
+
+        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
 };
 
 

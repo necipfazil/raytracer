@@ -5,11 +5,15 @@
 #include "pointlight.hpp"
 #include "../../utility/random_number_generator.hpp"
 
+class Scene;
+
 class AreaLight : public Light
 {
     private:
         Vector3 edgeVectors[2];
         Vector3 normal; // should be used in reverse direction, too
+        Position3 position;
+        Vector3 intensity;
 
         void computeAndSetNormal()
         {
@@ -19,7 +23,7 @@ class AreaLight : public Light
     
     public:
         AreaLight(const Position3 & position, const Vector3 & intensity, const Vector3 edgeVectors[2])
-            : Light(position, intensity)
+            : position(position), intensity(intensity)
             {
                 this->edgeVectors[0] = edgeVectors[0];
                 this->edgeVectors[1] = edgeVectors[1];
@@ -50,6 +54,8 @@ class AreaLight : public Light
             // return the new point light
             return PointLight(randomPositionInsideArea, attenuatedIntensity);
         }
+
+        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
 };
 
 #endif

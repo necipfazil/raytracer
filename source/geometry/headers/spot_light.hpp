@@ -1,15 +1,15 @@
 #ifndef __SPOT_LIGHT_H__
 #define __SPOT_LIGHT_H__
 
+#include "light.hpp"
 #include "position3.hpp"
 #include "vector3.hpp"
 
 #include <cmath>
 
-#include <iostream>
-using namespace std;
+class Scene;
 
-class SpotLight
+class SpotLight : public Light
 {
     private:
         Position3 position;
@@ -47,8 +47,6 @@ class SpotLight
 
             float cosTheta = Vector3(hit2light).normalize() ^ this->direction;
 
-            //cout << "CosTheta: " << cosTheta << ", cosFalloffAngle: " << cosFalloffAngle << ", cosCovAngle: " << cosCovAngle << endl;
-
             if(cosTheta > cosFalloffAngle)
             {
                 // full illumunation
@@ -78,6 +76,8 @@ class SpotLight
         float getFalloffAngle() const {
             return this->falloffAngle;
         }
+
+        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
 };
 
 #endif
