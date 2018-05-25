@@ -67,6 +67,9 @@ class Vector3
         // element-wise compare
         bool operator!=(const float rhs) const;
 
+        // element-wise product
+        Vector3 elementwiseMultiply(const Vector3& rhs) const;
+
         bool isZeroVector() const;
 
         // element-wise power
