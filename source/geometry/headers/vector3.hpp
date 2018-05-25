@@ -49,6 +49,9 @@ class Vector3
         
         // scalar division
         Vector3 operator/(float rhs) const;
+
+        // scalar division
+        Vector3& operator/=(float rhs);
         
         // get norm
         float getNorm() const;

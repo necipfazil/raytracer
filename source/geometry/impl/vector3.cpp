@@ -135,6 +135,16 @@ Vector3 Vector3::operator/(float rhs) const
     );
 }
 
+// scalar division
+Vector3& Vector3::operator/=(float rhs)
+{
+    x /= rhs;
+    y /= rhs;
+    z /= rhs;
+    
+    return *this;
+}
+
 // get norm
 float Vector3::getNorm() const
 {
