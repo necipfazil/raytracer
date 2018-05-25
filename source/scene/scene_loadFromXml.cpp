@@ -467,8 +467,6 @@ Material parseMaterial(tinyxml2::XMLElement* element, const std::vector<BRDF>& b
     {
         brdfId--; // 0-index
 
-        std::cout << "BRDF id: " << brdfId << std::endl;
-
         // set brdf
         material.setBRDF(brdfs[brdfId]);
     }
