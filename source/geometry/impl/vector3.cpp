@@ -249,3 +249,12 @@ Vector3 Vector3::generateDifferentlyDirectedVector() const
         return Vector3(-y, x, 0);
     }
 }
+
+Vector3 Vector3::elementwiseMultiply(const Vector3& rhs) const
+{
+    return Vector3(
+        x * rhs.x,
+        y * rhs.y,
+        z * rhs.z
+    );
+}
