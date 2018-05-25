@@ -8,7 +8,7 @@
 #include <forward_list>
 #include <cmath>
 
-Color Scene::getDiffuseColor(const Material & material, const HitInfo & hitInfo, const IncidentLight& incidentLight) const // const HitInfo & hitInfo, const Light & light) const
+Color Scene::getDiffuseColor(const Material & material, const HitInfo & hitInfo, const IncidentLight& incidentLight) const
 {    
     if(incidentLight.inShadow)
         return Color::Black();
@@ -203,16 +203,7 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
                     // get incident light
                     IncidentLight incidentLight = lights[i]->getIncidentLight(*this, hitInfo.hitPosition, ray.getTimeCreated());
 
-                    // if not in shadow
-                    if(!incidentLight.inShadow)
-                    {
-                        // diffuse
-                        color += getDiffuseColor(material, hitInfo, incidentLight);
-                        
-                        // specular
-                        if((hitInfo.normal ^ ray.getDirection()) < 0)
-                            color += getSpecular(ray, material, hitInfo, incidentLight);
-                    }
+                    color += hitInfo.material.getBRDF().computeReflectedLight(ray, hitInfo, incidentLight);
                 }
             }
 

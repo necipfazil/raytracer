@@ -1,6 +1,13 @@
 #ifndef __BRDF_H__
 #define __BRDF_H__
 
+#include "light.hpp"
+#include "vector3.hpp"
+
+class Ray;
+class Color;
+struct HitInfo;
+
 class BRDF
 {
     public:
@@ -21,6 +28,8 @@ class BRDF
 
     void setMode(Mode mode) { this->mode = mode; }
     Mode getMode() const { return this->mode; }
+
+    Color computeReflectedLight(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& incidentLight) const;
 
     private:
         float exponent;
