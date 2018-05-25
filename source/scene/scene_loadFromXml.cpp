@@ -219,7 +219,7 @@ ToneMappingParam parseToneMapping(tinyxml2::XMLElement* element)
     {
         tmParam.gamma = parseChild<float>(element, "Gamma");
     }
-
+    
     return tmParam;
 }
 
