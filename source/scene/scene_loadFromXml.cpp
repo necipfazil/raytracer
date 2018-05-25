@@ -232,6 +232,10 @@ BRDF parseBRDF(tinyxml2::XMLElement* element)
     if(doesHaveChild(element, "Exponent"))
         brdf.setExponent( parseChild<float>(element, "Exponent") );
 
+    // refractive index
+    if(doesHaveChild(element, "RefractiveIndex"))
+        brdf.setRefractiveIndex( parseChild<float>(element, "RefractiveIndex") );        
+
     // isNormalized
     const char* normalized = element->Attribute("normalized");
     brdf.setNormalized(normalized && normalized[0] == 't');
@@ -962,6 +966,8 @@ void Scene::loadFromXml(const std::string& filepath)
 
     if(element)
     {
+        // TODO: id assignment is not done properly
+
         // OriginalPhong
         auto child = element->FirstChildElement("OriginalPhong");
         while(child)
@@ -1020,6 +1026,21 @@ void Scene::loadFromXml(const std::string& filepath)
             brdfs.push_back(brdf);
             
             child = child->NextSiblingElement("ModifiedBlinnPhong");
+        }
+
+        // TorranceSparrow
+        child = element->FirstChildElement("TorranceSparrow");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::TORRANCE_SPARROW);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("TorranceSparrow");
         }
     }
 

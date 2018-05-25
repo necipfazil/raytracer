@@ -20,7 +20,6 @@ Color getDiffuseDefault(const HitInfo & hitInfo, const IncidentLight& incidentLi
     return diffuseColor;
 }
 
-
 Color getSpecularDefault(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& incidentLight)
 {
     if(incidentLight.inShadow)
@@ -87,6 +86,55 @@ Color getPhong(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& in
     return Color(result);
 }
 
+Color getBlinnPhong(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& incidentLight, bool modified, bool normalized)
+{
+    if(incidentLight.inShadow)
+        return Color::Black();
+
+    const Vector3 w_i = incidentLight.hitToLightDirection;
+    const Vector3 w_o = -ray.getDirection();
+
+    const Material& material = hitInfo.material;
+
+    // cosinus of the angle between w_i and surface normal
+    const float cosTheta_i = w_i ^ hitInfo.normal;
+
+    // if theta_i < 90, then, return 0
+    if(cosTheta_i < 0.f)
+        return Color::Black();
+
+    // half vector
+    Vector3 w_h = (w_i + w_o).normalize();
+
+    // cosinus of the angle between half vector and surface normal
+    float cosAlfa_h = w_h ^ hitInfo.normal;
+
+    // raise to exponent p
+    float raisedCosAlfa_h = pow(cosAlfa_h, material.getBRDF().getExponent());
+
+    Vector3 diffuse, specular;
+
+    if(!modified && !normalized)
+    {
+        diffuse = material.getDiffuse();
+        specular = material.getSpecular() * (raisedCosAlfa_h / cosTheta_i);
+    }
+    else if(modified && !normalized)
+    {
+        diffuse = material.getDiffuse();
+        specular = material.getSpecular() * raisedCosAlfa_h;
+    }
+    else if(modified && normalized)
+    {
+        diffuse = material.getDiffuse() * M_1_PI;
+        specular = material.getSpecular() * (material.getBRDF().getExponent() + 8) * (1 / 8.f) * M_1_PI * raisedCosAlfa_h;
+    }
+
+    Vector3 result = ((diffuse + specular) * cosTheta_i).elementwiseMultiply(incidentLight.intensity);
+
+    return Color(result);
+}
+
 // Methods for other brdfs
 Color BRDF::computeReflectedLight(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& incidentLight) const
 {
@@ -106,8 +154,14 @@ Color BRDF::computeReflectedLight(const Ray & ray, const HitInfo & hitInfo, cons
             else            color += getPhong(ray, hitInfo, incidentLight, true, true);
             break;
         case BLINNPHONG:
+            color += getBlinnPhong(ray, hitInfo, incidentLight, false, false);
             break;
         case BLINNPHONG_MODIFIED:
+            if(!normalized) color += getBlinnPhong(ray, hitInfo, incidentLight, true, false);
+            else            color += getBlinnPhong(ray, hitInfo, incidentLight, true, true);
+            break;
+        case TORRANCE_SPARROW:
+            // TODO
             break;
     }
 
