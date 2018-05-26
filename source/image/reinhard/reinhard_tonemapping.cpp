@@ -145,13 +145,17 @@ Mat scaleLuminanceByKey(const Mat & lumImg, float keyA = 0.18f)
 	
 }
 
-float getLogAvgLuminance(const Mat & lumImg)
+float getLogAvgLuminance(const Mat & _lumImg)
 {
-	if(lumImg.empty() || lumImg.channels() != 1 || lumImg.type() != CV_32FC1)
+	if(_lumImg.empty() || _lumImg.channels() != 1 || _lumImg.type() != CV_32FC1)
 	{
 		cerr << "Error: Incorrect input for getLogLuminanceAvg()" << endl;
 		exit(1);
 	}
+
+	// Create a new Mat, clone lumImg, and add an epsilon value to avoid log(0)
+	Mat lumImg = _lumImg.clone();
+	lumImg += .01f;
 	
 	int numOfRows = lumImg.rows;
 	int numOfCols = lumImg.cols;

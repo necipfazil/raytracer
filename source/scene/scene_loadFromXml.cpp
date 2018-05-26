@@ -4,7 +4,12 @@
 #include "../geometry/headers/geometry.hpp"
 #include "../geometry/headers/transformation.hpp"
 #include "../geometry/headers/texture.hpp"
+#include "../geometry/headers/light.hpp"
+#include "../geometry/headers/pointlight.hpp"
+#include "../geometry/headers/arealight.hpp"
 #include "../geometry/headers/spot_light.hpp"
+#include "../geometry/headers/directional_light.hpp"
+#include "../geometry/headers/brdf.hpp"
 #include "../image/image.hpp"
 #include "../utility/ply_parser.hpp"
 #include "../utility/pair.hpp"
@@ -214,8 +219,28 @@ ToneMappingParam parseToneMapping(tinyxml2::XMLElement* element)
     {
         tmParam.gamma = parseChild<float>(element, "Gamma");
     }
-
+    
     return tmParam;
+}
+
+// Does not set mode of the BRDF
+BRDF parseBRDF(tinyxml2::XMLElement* element)
+{
+    BRDF brdf;
+
+    // exponent
+    if(doesHaveChild(element, "Exponent"))
+        brdf.setExponent( parseChild<float>(element, "Exponent") );
+
+    // refractive index
+    if(doesHaveChild(element, "RefractiveIndex"))
+        brdf.setRefractiveIndex( parseChild<float>(element, "RefractiveIndex") );        
+
+    // isNormalized
+    const char* normalized = element->Attribute("normalized");
+    brdf.setNormalized(normalized && normalized[0] == 't');
+
+    return brdf;
 }
 
 Camera parseCamera(tinyxml2::XMLElement* element)
@@ -432,11 +457,23 @@ Color parseBackgroundColor(tinyxml2::XMLElement* element)
     return backgroundColor;
 }
 
-Material parseMaterial(tinyxml2::XMLElement* element)
+Material parseMaterial(tinyxml2::XMLElement* element, const std::vector<BRDF>& brdfs)
 {
     std::stringstream stream;
 
     Material material;
+
+        // read BRDF id
+    int brdfId = -1;
+    element->QueryAttribute("BRDF", &brdfId);
+
+    if(brdfId != -1)
+    {
+        brdfId--; // 0-index
+
+        // set brdf
+        material.setBRDF(brdfs[brdfId]);
+    }
         
         // read ambient reflectance
     auto child = element->FirstChildElement("AmbientReflectance");
@@ -770,6 +807,8 @@ void Scene::loadFromXml(const std::string& filepath)
     std::vector<Rotation> rotations;
     std::vector<Texture*> textures; // to be cleaned after required assignments
     std::vector<Vec2i> texCoordData;
+
+    std::vector<BRDF> brdfs;
     
     auto res = file.LoadFile(filepath.data());
     if (res)
@@ -855,7 +894,9 @@ void Scene::loadFromXml(const std::string& filepath)
     element = element->FirstChildElement("PointLight");
     while (element)
     {
-        this->pointLights.push_back(parsePointLight(element));
+        Light* light = (Light*) new PointLight(parsePointLight(element));
+        this->lights.push_back(light);
+        //this->pointLights.push_back(parsePointLight(element));
 
         // read the next point light sibling
         element = element->NextSiblingElement("PointLight");
@@ -867,7 +908,10 @@ void Scene::loadFromXml(const std::string& filepath)
     element = element->FirstChildElement("AreaLight");
     while (element)
     {
-        this->areaLights.push_back(parseAreaLight(element));
+        Light* light = (Light*) new AreaLight(parseAreaLight(element));
+        this->lights.push_back(light);
+
+        //this->areaLights.push_back(parseAreaLight(element));
 
         // read the next area light sibling
         element = element->NextSiblingElement("AreaLight");
@@ -891,7 +935,10 @@ void Scene::loadFromXml(const std::string& filepath)
             radiance = parseChild<Vector3>(element, "Radiance");
         }
 
-        this->directionalLights.push_back(DirectionalLight(direction, radiance));
+        Light* light = (Light*) new DirectionalLight(direction, radiance);
+        this->lights.push_back(light);
+
+        //this->directionalLights.push_back(DirectionalLight(direction, radiance));
 
         // read the next sibling
         element = element->NextSiblingElement("DirectionalLight");
@@ -903,10 +950,98 @@ void Scene::loadFromXml(const std::string& filepath)
     element = element->FirstChildElement("SpotLight");
     while(element)
     {
-        this->spotLights.push_back(parseSpotLight(element));
+        Light* light = (Light*) new SpotLight(parseSpotLight(element));
+        this->lights.push_back(light);
+
+        //this->spotLights.push_back(parseSpotLight(element));
 
         // read the next sibling
         element = element->NextSiblingElement("SpotLight");
+    }
+
+    //
+    // BRDFs
+    //
+    element = root->FirstChildElement("BRDFs");
+
+    if(element)
+    {
+        // TODO: id assignment is not done properly
+
+        // OriginalPhong
+        auto child = element->FirstChildElement("OriginalPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::PHONG);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("OriginalPhong");
+        }
+        
+        // ModifiedPhong
+        child = element->FirstChildElement("ModifiedPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::PHONG_MODIFIED);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("ModifiedPhong");
+        }
+
+        // OriginalBlinnPhong
+        child = element->FirstChildElement("OriginalBlinnPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::BLINNPHONG);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("OriginalBlinnPhong");
+        }
+
+        // ModifiedBlinnPhong
+        child = element->FirstChildElement("ModifiedBlinnPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::BLINNPHONG_MODIFIED);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("ModifiedBlinnPhong");
+        }
+
+        // TorranceSparrow
+        child = element->FirstChildElement("TorranceSparrow");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::TORRANCE_SPARROW);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("TorranceSparrow");
+        }
     }
 
     //
@@ -917,7 +1052,7 @@ void Scene::loadFromXml(const std::string& filepath)
     
     while (element)
     {
-        this->materials.push_back(parseMaterial(element));
+        this->materials.push_back(parseMaterial(element, brdfs));
 
         // read next material sibling
         element = element->NextSiblingElement("Material");

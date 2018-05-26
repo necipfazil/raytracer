@@ -27,4 +27,19 @@
 *.out
 *.app
 
+# Visual Studio Code
 source/\.vscode/
+\.vscode/
+
+# Scene files
+files/
+
+# Executable
+raytracer
+
+# Output images
+*.png
+*.jpg
+*.jpeg
+*.exr
+*.ppm

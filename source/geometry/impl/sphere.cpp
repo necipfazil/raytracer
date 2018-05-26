@@ -22,6 +22,9 @@ bool Sphere::isIntersecting(const Ray & ray) const
 
 bool Sphere::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling) const
 {
+    // set time of hit
+    hitInfo.time = originalRay.getTimeCreated();
+    
     Ray ray = transformRayForIntersection(originalRay);
 
     float disc = discriminant(ray);

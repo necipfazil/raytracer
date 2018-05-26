@@ -2,8 +2,11 @@
 #define __DIRECTIONAL_LIGHT_H__
 
 #include "vector3.hpp"
+#include "light.hpp"
 
-class DirectionalLight
+class Scene;
+
+class DirectionalLight : public Light
 {
     private:
         Vector3 direction;
@@ -18,6 +21,8 @@ class DirectionalLight
 
         void setRadiance(const Vector3& radiance) { this->radiance = radiance; }
         Vector3 getRadiance() const { return this->radiance; }
+
+        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
 };
 
 #endif

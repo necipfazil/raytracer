@@ -25,6 +25,9 @@ bool BoundingVolume::isEnclosing(const Position3 & point) const
 
 bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling) const
 {
+    // set time of hit
+    hitInfo.time = originalRay.getTimeCreated();
+    
     // does the ray hit the volume or is it enclosed by the volume
     if(liangbarskyHit(originalRay))
     {
