@@ -4,7 +4,7 @@ debugflags = -std=c++11 -pg -ljpeg -lpng -pthread
 gdbflags = -std=c++11 -O0 -g -ljpeg -lpng -pthread
 opencv_cflags = $(shell pkg-config --libs --cflags opencv)
 compiler = g++
-output = raytracer
+output = raytracer.out
 
 all:
 	$(compiler) $(files) -o $(output) $(flags) $(opencv_cflags)
