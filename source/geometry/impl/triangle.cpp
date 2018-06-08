@@ -154,7 +154,7 @@ void Triangle::fillLookUpTable()
 
 }
 
-bool Triangle::hit(const Ray& originalRay, HitInfo & hitInfo, bool backfaceCulling) const
+bool Triangle::hit(const Ray& originalRay, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const
 {
     // set time of hit
     hitInfo.time = originalRay.getTimeCreated();

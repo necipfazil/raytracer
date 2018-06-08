@@ -42,7 +42,7 @@ class Shape
             this->material = material;
         }
 
-        virtual bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling) const = 0;
+        virtual bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const = 0;
 
         // destructor
         virtual ~Shape() { };

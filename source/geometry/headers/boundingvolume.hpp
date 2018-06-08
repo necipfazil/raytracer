@@ -47,7 +47,7 @@ class BoundingVolume : public Shape
 
         static BoundingVolume* makeInstanceOf(BoundingVolume* toBeInstanced);
         
-        bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling) const;
+        bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const;
 
         virtual ~BoundingVolume();
         

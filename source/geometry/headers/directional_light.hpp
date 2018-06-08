@@ -22,7 +22,7 @@ class DirectionalLight : public Light
         void setRadiance(const Vector3& radiance) { this->radiance = radiance; }
         Vector3 getRadiance() const { return this->radiance; }
 
-        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
+        virtual IncidentLight getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const;
 };
 
 #endif

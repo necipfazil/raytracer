@@ -66,7 +66,7 @@ class Triangle : public Surface
                                      const Position3 & vertex1,
                                      const Position3 & vertex2 );
         
-        bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling) const;
+        bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const;
 
         ShadingMode getShadingMode() const { return this->shadingMode; }
         void setShadingMode(ShadingMode shadingMode) { this->shadingMode = shadingMode; }

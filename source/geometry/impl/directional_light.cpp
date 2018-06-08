@@ -2,13 +2,13 @@
 #include "../headers/position3.hpp"
 #include "../../scene.hpp"
 
-IncidentLight DirectionalLight::getIncidentLight(const Scene& scene, const Position3& position, float time) const
+IncidentLight DirectionalLight::getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const
 {
     IncidentLight result;
 
     // check shadow
     // create shadow ray
-    Ray shadowRay(position, this->getReverseDirection());
+    Ray shadowRay(hitInfo.hitPosition, this->getReverseDirection());
 
     // set time for ray creation
     shadowRay.setTimeCreated(time);
@@ -18,7 +18,7 @@ IncidentLight DirectionalLight::getIncidentLight(const Scene& scene, const Posit
 
     HitInfo shadowRayHitInfo;
 
-    result.inShadow = scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true);
+    result.inShadow = scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true, true);
 
     // if in shadow, do not continue computation
     if(result.inShadow)

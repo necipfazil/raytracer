@@ -20,7 +20,7 @@ bool Sphere::isIntersecting(const Ray & ray) const
     return discriminant(ray) >= 0.0;
 }
 
-bool Sphere::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling) const
+bool Sphere::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const
 {
     // set time of hit
     hitInfo.time = originalRay.getTimeCreated();

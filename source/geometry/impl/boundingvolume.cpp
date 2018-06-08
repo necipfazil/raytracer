@@ -23,7 +23,7 @@ bool BoundingVolume::isEnclosing(const Position3 & point) const
         point.getZ() >= bvMin.getZ() && point.getZ() <= bvMax.getZ();
 }
 
-bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling) const
+bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const
 {
     // set time of hit
     hitInfo.time = originalRay.getTimeCreated();
@@ -36,8 +36,8 @@ bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfa
         HitInfo leftHitInfo, rightHitInfo;
 
         // make hits on both left and right
-        bool leftHit = leftNode ? leftNode->hit(hitCheckRay, leftHitInfo, backfaceCulling) : false;
-        bool rightHit = rightNode ? rightNode->hit(hitCheckRay, rightHitInfo, backfaceCulling) : false;
+        bool leftHit = leftNode ? leftNode->hit(hitCheckRay, leftHitInfo, backfaceCulling, opaqueSearch) : false;
+        bool rightHit = rightNode ? rightNode->hit(hitCheckRay, rightHitInfo, backfaceCulling, opaqueSearch) : false;
 
         bool result = leftHit || rightHit;
 

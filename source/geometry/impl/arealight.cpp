@@ -1,10 +1,11 @@
 #include "../headers/light.hpp"
 #include "../headers/arealight.hpp"
 #include "../headers/pointlight.hpp"
+#include "../headers/structs.hpp"
 
-IncidentLight AreaLight::getIncidentLight(const Scene& scene, const Position3& position, float time) const
+IncidentLight AreaLight::getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const
 {
     PointLight pointLight = this->getPointLight(position);
 
-    return pointLight.getIncidentLight(scene, position, time);
+    return pointLight.getIncidentLight(scene, hitInfo, time);
 }

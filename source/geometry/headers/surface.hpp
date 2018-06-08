@@ -22,7 +22,7 @@ class Surface : public Shape
     public:
         // returns true if ray hits the surface and records the hit position
         // .. in hitPosition object
-        virtual bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling) const = 0;
+        virtual bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const = 0;
 
         void setTexture(Texture* texture)
         {

@@ -38,7 +38,7 @@ class Sphere : public Surface
         
         float discriminant(const Ray & ray) const;
        
-        bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling) const;
+        bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const;
 };
 
 #endif

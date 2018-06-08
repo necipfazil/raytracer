@@ -40,6 +40,9 @@ struct HitInfo
     TextureInfo textureInfo;
     float t;
     float time = 0.f;
+
+    bool isLight = false;
+    Color lightColor;
 };
 
 #endif

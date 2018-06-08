@@ -77,7 +77,7 @@ class SpotLight : public Light
             return this->falloffAngle;
         }
 
-        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
+        virtual IncidentLight getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const;
 };
 
 #endif

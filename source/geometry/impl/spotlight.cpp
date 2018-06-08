@@ -3,15 +3,15 @@
 #include "../headers/ray.hpp"
 #include "../../scene.hpp"
 
-IncidentLight SpotLight::getIncidentLight(const Scene& scene, const Position3& position, float time) const
+IncidentLight SpotLight::getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const
 {
     IncidentLight result;
 
-    Vector3 hit2light = position.to(this->position);
+    Vector3 hit2light = hitInfo.hitPosition.to(this->position);
 
     // check if in shadow
         // first, create the shadow ray
-    Ray shadowRay(position, hit2light);
+    Ray shadowRay(hitInfo.hitPosition, hit2light);
 
     // set time for ray creation
     shadowRay.setTimeCreated(time);
@@ -22,7 +22,7 @@ IncidentLight SpotLight::getIncidentLight(const Scene& scene, const Position3& p
     HitInfo shadowRayHitInfo;
 
     // TODO: Null check
-    if( scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true) )
+    if( scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true, true) )
     {   
         float hitPointToLightT = shadowRay.getTValue(this->position);
 
@@ -39,7 +39,7 @@ IncidentLight SpotLight::getIncidentLight(const Scene& scene, const Position3& p
 
 
     // intensity
-    result.intensity = this->getIntensity(position);
+    result.intensity = this->getIntensity(hitInfo.hitPosition);
 
     // direction
     result.hitToLightDirection = hit2light.normalize();
