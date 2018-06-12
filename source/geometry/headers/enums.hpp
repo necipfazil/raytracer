@@ -14,4 +14,11 @@ enum ShadingMode
     SMOOTH
 };
 
+enum Integrator
+{
+    DEFAULT,
+    UNIFORM_PATHTRACING,
+    IMPORTANCE_PATHTRACING
+};
+
 #endif
