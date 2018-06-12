@@ -325,6 +325,38 @@ Ray Shape::transformRayForIntersection(const Ray & originalRay) const
     return ray;
 }
 
+Ray Shape::applyShapeTransformation(const Ray & originalRay) const
+{
+    // Here you are going to see some simple optimization tricks
+    // Therefore, code is not simple as it could have been
+
+    Ray ray = originalRay;
+
+    // both
+    if(this->hasTransformation && this->hasMotionBlur)
+    {
+        Transformation totalTransformation = this->transformation;
+
+        totalTransformation += Translation(this->motionBlur * ray.getTimeCreated());
+
+        ray = totalTransformation.transform<Ray>(ray);
+    }
+    else if(this->hasTransformation)
+    {
+        // only transformation
+        ray = this->transformation.transform<Ray>(ray);
+    }
+    else if(this->hasMotionBlur)
+    {
+        // only motion blur
+        Translation motionBlurTranslation(this->motionBlur * ray.getTimeCreated());
+
+        ray = motionBlurTranslation.transform<Ray>(ray);
+    }
+
+    return ray;
+}
+
 void Shape::transformHitInfoAfterIntersection(const Ray & originalRay, HitInfo & hitInfo) const
 {
     // Here you are going to see some simple optimization tricks

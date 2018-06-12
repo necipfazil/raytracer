@@ -5,6 +5,7 @@
 #include "../image/image.hpp"
 #include "../utility/concurrent_bag.hpp"
 #include "../utility/pixel_mission_generator.hpp"
+#include "../utility/random_number_generator.hpp"
 #include <forward_list>
 #include <cmath>
 
@@ -173,10 +174,16 @@ Color Scene::getRefractionColor(const Ray & hittingRay, const HitInfo & hitInfo,
 
 Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling) const
 {
+    if(recursionDepth == 0)
+        return Color::Black();
+
     HitInfo hitInfo;
     
-    if( BVH->hit(ray, hitInfo, backfaceCulling) )
+    if( BVH->hit(ray, hitInfo, backfaceCulling, false) )
     {
+        if(hitInfo.isLight)
+            return hitInfo.lightColor;
+
         Material & material = hitInfo.material;
 
         bool shapeIsFacing = (hitInfo.normal ^ ray.getDirection()) < 0;
@@ -194,19 +201,72 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
             // ambient
             color += getAmbientColor(material, this->ambientLight);
 
-            // diffuse and specular
+            // direct lighting - diffuse and specular
             if(shapeIsFacing)
             {
                 // traverse lights
                 for(int i = 0; i < this->lights.size(); i++)
                 {
                     // get incident light
-                    IncidentLight incidentLight = lights[i]->getIncidentLight(*this, hitInfo.hitPosition, ray.getTimeCreated());
+                    IncidentLight incidentLight = lights[i]->getIncidentLight(*this, hitInfo, ray.getTimeCreated());
 
                     color += hitInfo.material.getBRDF().computeReflectedLight(ray, hitInfo, incidentLight);
                 }
             }
 
+            // indirect lighting
+            if(this->integrator != Integrator::DEFAULT && shapeIsFacing)
+            {
+                // generate orthonormal basis from normal
+                std::vector<Vector3> orthonormalBasis = Vector3::generateOrthonomalBasis(hitInfo.normal);
+
+                // generate two random numbers
+                float psi1 = getRandomBtw01();
+                float psi2 = getRandomBtw01();
+
+                // compute angles for hemisphere
+                float theta = 0.f;
+                float fi    = 2 * M_PI * psi2;
+
+                // theta changes depending on the integrator param
+                if(this->integrator == Integrator::UNIFORM_PATHTRACING)
+                    theta = acos(psi1); 
+                else if(this->integrator == Integrator::IMPORTANCE_PATHTRACING)
+                    theta = asin( sqrt(psi1) );
+
+                // compute the sample direction to gather light from
+                Vector3 w_i = (hitInfo.normal * cos(theta)) +
+                              (orthonormalBasis[1] * (sin(theta) * cos(fi))) +
+                              (orthonormalBasis[2] * (sin(theta) * sin(fi)));
+
+                w_i.normalize();
+
+                // create ray
+                Ray sampleRay = Ray(hitInfo.hitPosition, w_i).translateRayOrigin(getShadowRayEpsilon());
+
+                // get color of sampled ray
+                Color sampleColor = getRayColor(sampleRay, recursionDepth - 1, backfaceCulling);
+
+                if(!sampleColor.isBlack())
+                {
+                    // create incident light
+                    IncidentLight incidentLight;
+
+                    incidentLight.intensity = sampleColor.getVector3();
+                    incidentLight.inShadow = false;
+                    incidentLight.hitToLightDirection = w_i;
+
+                    // compute and add the color
+                    Color pathTracedColor = hitInfo.material.getBRDF().computeReflectedLight(sampleRay, hitInfo, incidentLight);
+
+                    // 1 / p(w)
+                    float _1_pw = 2 * M_PI;
+
+                    color += pathTracedColor.intensify(_1_pw);
+                }
+            }
+            
+           
             // reflection
                 // check if it has mirrorish material 
             if(!material.getMirror().isZeroVector())

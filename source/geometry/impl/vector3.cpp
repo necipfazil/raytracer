@@ -227,6 +227,11 @@ std::vector<Vector3> Vector3::generateOrthonomalBasis(const Vector3& referenceVe
     else if(z <= x && z <= y)
         rPrime.z = 1.f;
 
+    // set 0 components of rPrime to 1
+    if(rPrime.getX() == 0.f) rPrime.setX(1.f);
+    if(rPrime.getY() == 0.f) rPrime.setY(1.f);
+    if(rPrime.getZ() == 0.f) rPrime.setZ(1.f);
+
     rPrime.normalize();
 
     // compute u, v, w(:r)

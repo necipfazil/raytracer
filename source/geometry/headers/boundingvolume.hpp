@@ -36,7 +36,7 @@ class BoundingVolume : public Shape
         BoundingVolume() : leftNode(nullptr), rightNode(nullptr) { }
 
         bool isEnclosing(const Position3 & point) const;
-
+        
     public:
         // it is not known if the return Shape* points to a BoundingVolume or a Surface
         // therefore, it is not safe to resolve it to a concrete object
@@ -50,6 +50,8 @@ class BoundingVolume : public Shape
         bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const;
 
         virtual ~BoundingVolume();
+
+        virtual Position3 getUniformPoint() const;
         
 };
 

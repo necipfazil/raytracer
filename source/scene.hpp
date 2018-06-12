@@ -10,11 +10,14 @@
 #include "geometry/headers/transformation.hpp"
 #include "geometry/headers/light.hpp"
 #include "geometry/headers/brdf.hpp"
+#include "geometry/headers/enums.hpp"
 #include <string>
 
 class Scene
 {
     private:
+
+        Integrator integrator = Integrator::DEFAULT;
 
         Color backgroundColor;
         Vector3 ambientLight;

@@ -39,6 +39,8 @@ class Sphere : public Surface
         float discriminant(const Ray & ray) const;
        
         bool hit(const Ray & ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const;
+
+        virtual Position3 getUniformPoint() const { return this->center; } // dummy
 };
 
 #endif

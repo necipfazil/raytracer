@@ -9,7 +9,7 @@
 #include "vector3.hpp"
 #include "ray.hpp"
 #include "structs.hpp"
-
+#include "../../config.h"
 
 class Triangle : public Surface
 {
@@ -82,6 +82,8 @@ class Triangle : public Surface
             std::cout << "TexCoord 1: " << c1.x << ", " << c1.y << std::endl;
             std::cout << "TexCoord 2: " << c2.x << ", " << c2.y << std::endl;*/
         }
+
+        virtual Position3 getUniformPoint() const;
 };
 
 #endif

@@ -23,6 +23,19 @@ bool BoundingVolume::isEnclosing(const Position3 & point) const
         point.getZ() >= bvMin.getZ() && point.getZ() <= bvMax.getZ();
 }
 
+Position3 BoundingVolume::getUniformPoint() const
+{
+    float psi = getRandomBtw01() * area;
+
+    if(rightNode && leftNode)
+        return leftNode->getArea() > psi ? leftNode->getUniformPoint() : rightNode->getUniformPoint();
+    else if(leftNode)
+        return leftNode->getUniformPoint();
+    else if(rightNode)
+        return rightNode->getUniformPoint();
+
+}
+
 bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const
 {
     // set time of hit
@@ -151,6 +164,11 @@ Shape* BoundingVolume::createBoundingVolumeHiearchy(
     }
 
     bvh->ownsChildren = true;
+
+    // area
+    bvh->area += bvh->leftNode  ? bvh->leftNode->getArea()  : 0;
+    bvh->area += bvh->rightNode ? bvh->rightNode->getArea() : 0;
+
     // return newly created bvh
     return bvh;
 }

@@ -117,13 +117,22 @@ Vector3 Triangle::computeNormal(const Position3 & vertex0,
     return normal;
 }
 
-/*std::ostream &operator<<(std::ostream &output, const Triangle & triangle)
+Position3 Triangle::getUniformPoint() const
 {
-    output << "T[ " << triangle.getVertex(0) << ", " <<
-                      triangle.getVertex(1) << ", " <<
-                      triangle.getVertex(2) << " ]";
-    return output;
-}*/
+    // vectors between vertices
+    Vector3 v0_to_v1 = vertex[0].to(vertex[1]);
+    Vector3 v1_to_v2 = vertex[1].to(vertex[2]);
+
+    // generate displacement from v0 by uniformly random amount
+    float sqrtpsi1 = sqrt(getRandomBtw01());
+    float     psi2 = getRandomBtw01();
+
+    v0_to_v1 = v0_to_v1 * sqrtpsi1;
+    v1_to_v2 = v1_to_v2 * psi2;
+
+    // apply displacement on v0 to find the point to get the result
+    return vertex[0] + (v0_to_v1 + v1_to_v2);
+}
 
 void Triangle::fillLookUpTable()
 {
@@ -151,6 +160,8 @@ void Triangle::fillLookUpTable()
     
     lookUpTable.A_C = Vector3( lookUpTable.Ax_Cx, lookUpTable.Ay_Cy, lookUpTable.Az_Cz );
     lookUpTable.A_B = Vector3( lookUpTable.Ax_Bx, lookUpTable.Ay_By, lookUpTable.Az_Bz );
+
+    this->area = (a.to(b) * a.to(c)).getNorm() / 2.f;
 
 }
 

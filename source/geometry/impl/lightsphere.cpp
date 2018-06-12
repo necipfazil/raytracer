@@ -48,6 +48,9 @@ IncidentLight LightSphere::getIncidentLight(const Scene& scene, const HitInfo& h
     // Now, create a ray to send through the sphere
     Ray w_i = Ray(hitInfo.hitPosition, l);
 
+    // apply transformation if needed
+    w_i = applyShapeTransformation(w_i);
+
     HitInfo newHitInfo;
     // Thanks to the last parameter of hit, opaqueOnly, lightsphere would not
     // .. itself since it is not an opaque object
@@ -67,7 +70,8 @@ IncidentLight LightSphere::getIncidentLight(const Scene& scene, const HitInfo& h
 
     IncidentLight incidentLight = pointLight.getIncidentLight(scene, hitInfo, time);
 
-    incidentLight.intensity /= p_w;
+    // TODO
+    //incidentLight.intensity = incidentLight.intensity * p_w;
 
     return incidentLight;
 }

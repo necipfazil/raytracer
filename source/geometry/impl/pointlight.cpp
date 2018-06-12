@@ -21,12 +21,13 @@ IncidentLight PointLight::getIncidentLight(const Scene& scene, const HitInfo& hi
 
     HitInfo shadowRayHitInfo;
 
-    // TODO: Null check
-    if( scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true, true) )
+    if( scene.getBVH() && scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true, true) )
     {   
         float hitPointToLightT = shadowRay.getTValue(this->position);
 
-        result.inShadow = hitPointToLightT > shadowRayHitInfo.t;
+        // light and the object to shadow may reside at the same position
+        // .. therefore, use shadow ray epsilon as the least amount for valid shadowing
+        result.inShadow = hitPointToLightT - shadowRayHitInfo.t > scene.getShadowRayEpsilon();
     }
     else
     {

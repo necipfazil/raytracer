@@ -12,8 +12,8 @@ class LightSphere: public Light, public Sphere
     private:
         Vector3 radiance;
     public:
-        LightSphere(const Position3& center, float radius, const Material & material, const Vector3& radiance)
-            : Sphere(center, radius, material), radiance(radiance) {}
+        LightSphere(const Sphere& sphere, const Vector3& radiance)
+            : Sphere(sphere), radiance(radiance) {}
 
         virtual IncidentLight getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const;
 
