@@ -1,6 +1,8 @@
 #ifndef __RANDOM_NUMBER_GENERATOR_H__
 #define __RANDOM_NUMBER_GENERATOR_H__
 
+//float getRand();
+
 float getRandomBtw01();
 
 // random number in interval [-0.5, 0.5]

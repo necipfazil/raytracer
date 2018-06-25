@@ -27,12 +27,21 @@ Position3 BoundingVolume::getUniformPoint() const
 {
     float psi = getRandomBtw01() * area;
 
+    Position3 result;
+
     if(rightNode && leftNode)
-        return leftNode->getArea() > psi ? leftNode->getUniformPoint() : rightNode->getUniformPoint();
+        result = leftNode->getArea() > psi ? leftNode->getUniformPoint() : rightNode->getUniformPoint();
     else if(leftNode)
-        return leftNode->getUniformPoint();
+        result = leftNode->getUniformPoint();
     else if(rightNode)
-        return rightNode->getUniformPoint();
+        result = rightNode->getUniformPoint();
+
+    if(this->hasTransformation)
+    {
+        result = this->transformation.transform(result);
+    }
+
+    return result;
 
 }
 

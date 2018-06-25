@@ -52,6 +52,20 @@ class Color
             
             return *this;
         }
+
+        Color & clamp(float clampVal)
+        {
+            // R
+            if(this->R > clampVal) setR(clampVal);
+            
+            // G
+            if(this->G > clampVal) setG(clampVal);
+
+            // B
+            if(this->B > clampVal) setB(clampVal);
+
+            return *this;
+        }
         
         Color & operator+=(const Color & rhs)
         {

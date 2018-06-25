@@ -2,6 +2,7 @@
 #define __SCENE_H__
 
 #include "geometry/headers/geometry.hpp"
+#include "geometry/headers/spherical_env_light.hpp"
 #include "image/image.hpp"
 #include "image/color.hpp"
 #include "utility/concurrent_bag.hpp"
@@ -20,6 +21,8 @@ class Scene
         Integrator integrator = Integrator::DEFAULT;
 
         Color backgroundColor;
+        SphericalEnvLight* sphericalEnvLight = nullptr;
+
         Vector3 ambientLight;
 
         float shadowRayEpsilon;
@@ -35,7 +38,7 @@ class Scene
         // the reason why getRayColor(), getReflectionColor(), isLyingInShadow()
         // .. methods are non-static is that they are dependent on the Shape's included in the scene
         // therefore, they require to access the self's bounding volume hiearchy
-        Color getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling) const;
+        Color getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling, bool onlyOpaque=false) const;
         Color getReflectionColor(const Ray & ray, const HitInfo & hitInfo, int recursionDepth) const;
         Color getRefractionColor(const Ray & hittingRay, const HitInfo & hitInfo, int recursionDepth) const;
 
@@ -73,6 +76,13 @@ class Scene
             }
 
             lights.clear();
+
+            // spherical environment light
+            if(this->sphericalEnvLight)
+            {
+                delete this->sphericalEnvLight;
+                this->sphericalEnvLight = nullptr;
+            }
         }
         
         void loadFromXml(const std::string& filepath);

@@ -2,6 +2,7 @@
 #define __VECTOR3_H__
 
 #include <vector>
+#include "enums.hpp"
 
 class Vector3
 {
@@ -77,6 +78,9 @@ class Vector3
 
         // element-wise power
         Vector3 power(float prime) const;
+
+        // generates a randomly directed vector within the hemisphere around 'this' vector
+        Vector3 generateRandomVectorWithinHemisphere(RandomFactor randomFactor) const;
 };
 
 #endif

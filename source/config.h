@@ -1,6 +1,8 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+#include <cmath> // for constants
+
 //--------------------------------------------------------------------------//
 // enable-disable features
 //--------------------------------------------------------------------------//
@@ -38,6 +40,8 @@
 #define DEFAULT_MAXRECURSIONDEPTH "1"
 #define DEFAULT_SHADING_MODE ShadingMode::FLAT
 #define BACKFACE_CULLING
-#define SEEDED_RANDOMIZATION
-
+//#define SEEDED_RANDOMIZATION
+#define DEFAULT_RANDOM_FACTOR RandomFactor::UNIFORM
+#define SPHERE_UNIFORM_SAMPLING_PROP (M_1_PI * 0.5f) // const for sphere
+//#define ENV_MAP_SHADOW_CHECK
 #endif

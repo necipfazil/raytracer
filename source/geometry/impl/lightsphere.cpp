@@ -3,6 +3,7 @@
 #include "../headers/structs.hpp"
 #include "../../utility/random_number_generator.hpp"
 #include "../../scene.hpp"
+#include "../../config.h"
 #include <cmath>
 #include <iostream>
 
@@ -70,8 +71,7 @@ IncidentLight LightSphere::getIncidentLight(const Scene& scene, const HitInfo& h
 
     IncidentLight incidentLight = pointLight.getIncidentLight(scene, hitInfo, time);
 
-    // TODO
-    //incidentLight.intensity = incidentLight.intensity * p_w;
+    // incidentLight.intensity = incidentLight.intensity * p_w;
 
     return incidentLight;
 }

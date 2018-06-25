@@ -6,7 +6,8 @@
 #include <vector>
 #include <string>
 
-Pair< std::vector<Vec3f>, std::vector<Vec3i> >
+// vertexData, meshVertexIndices, texCoordData(if applicable)
+Triple< std::vector<Vec3f>, std::vector<Vec3i>, std::vector<Vec2f> >
 parsePly(const std::string& fileName);
 
 #endif

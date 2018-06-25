@@ -21,4 +21,10 @@ enum Integrator
     IMPORTANCE_PATHTRACING
 };
 
+enum RandomFactor
+{
+    UNIFORM,
+    IMPORTANCE
+};
+
 #endif

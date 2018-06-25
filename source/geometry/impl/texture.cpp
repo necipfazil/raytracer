@@ -33,7 +33,7 @@ Vec2f ImageTexture::getGradient(float u, float v) const
         image.getGrayscaleColor(i, jNext) - image.getGrayscaleColor(i, j)
     );
 }
-
+// u and v: [0,1]
 Color ImageTexture::getInterpolatedColor(float u, float v) const
 {
     float i = u * image.getWidth();

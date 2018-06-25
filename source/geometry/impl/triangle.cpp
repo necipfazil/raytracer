@@ -131,7 +131,14 @@ Position3 Triangle::getUniformPoint() const
     v1_to_v2 = v1_to_v2 * psi2;
 
     // apply displacement on v0 to find the point to get the result
-    return vertex[0] + (v0_to_v1 + v1_to_v2);
+    Position3 result = vertex[0] + (v0_to_v1 + v1_to_v2);
+
+    if(this->hasTransformation)
+    {
+        result = this->transformation.transform(result);
+    }
+
+    return result;
 }
 
 void Triangle::fillLookUpTable()
@@ -333,8 +340,8 @@ bool Triangle::hit(const Ray& originalRay, HitInfo & hitInfo, bool backfaceCulli
 
             Vec2f grd = imageTexture.getGradient(u, v);
 
-            Vector3 dpPrimedu = dpdu + (hitInfo.normal * (grd.u * imageTexture.getBumpMapMultiplier()));
-            Vector3 dpPrimedv = dpdv + (hitInfo.normal * (grd.v * imageTexture.getBumpMapMultiplier()));
+            Vector3 dpPrimedu = dpdu + (hitInfo.normal * (grd.x * imageTexture.getBumpMapMultiplier()));
+            Vector3 dpPrimedv = dpdv + (hitInfo.normal * (grd.y * imageTexture.getBumpMapMultiplier()));
 
             // update normal
             hitInfo.normal = (dpPrimedv * dpPrimedu).normalize();

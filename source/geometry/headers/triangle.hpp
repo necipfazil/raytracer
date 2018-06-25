@@ -19,7 +19,7 @@ class Triangle : public Surface
 
         ShadingMode shadingMode;
 
-        Vec2i texCoord[3];
+        Vec2f texCoord[3];
 
         Position3 computeMinPosition() const;
         Position3 computeMaxPosition() const;
@@ -71,7 +71,7 @@ class Triangle : public Surface
         ShadingMode getShadingMode() const { return this->shadingMode; }
         void setShadingMode(ShadingMode shadingMode) { this->shadingMode = shadingMode; }
 
-        void setTexCoord(const Vec2i& c0, const Vec2i& c1, const Vec2i& c2)
+        void setTexCoord(const Vec2f& c0, const Vec2f& c1, const Vec2f& c2)
         {
             
             texCoord[0] = c0;

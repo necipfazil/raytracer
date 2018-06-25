@@ -172,14 +172,14 @@ Color Scene::getRefractionColor(const Ray & hittingRay, const HitInfo & hitInfo,
     return color;
 }
 
-Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling) const
+Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling, bool onlyOpaque) const
 {
     if(recursionDepth == 0)
         return Color::Black();
 
     HitInfo hitInfo;
     
-    if( BVH->hit(ray, hitInfo, backfaceCulling, false) )
+    if( BVH && BVH->hit(ray, hitInfo, backfaceCulling, onlyOpaque) )
     {
         if(hitInfo.isLight)
             return hitInfo.lightColor;
@@ -214,38 +214,29 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
                 }
             }
 
-            // indirect lighting
+            // indirect lighting - path tracing
             if(this->integrator != Integrator::DEFAULT && shapeIsFacing)
             {
-                // generate orthonormal basis from normal
-                std::vector<Vector3> orthonormalBasis = Vector3::generateOrthonomalBasis(hitInfo.normal);
+                // decide the random factor
+                RandomFactor randomFactor;
+                switch(this->integrator)
+                {
+                    case Integrator::UNIFORM_PATHTRACING:
+                        randomFactor = RandomFactor::UNIFORM;
+                        break;
+                    case Integrator::IMPORTANCE_PATHTRACING:
+                        randomFactor = RandomFactor::IMPORTANCE;
+                        break;
+                }
 
-                // generate two random numbers
-                float psi1 = getRandomBtw01();
-                float psi2 = getRandomBtw01();
-
-                // compute angles for hemisphere
-                float theta = 0.f;
-                float fi    = 2 * M_PI * psi2;
-
-                // theta changes depending on the integrator param
-                if(this->integrator == Integrator::UNIFORM_PATHTRACING)
-                    theta = acos(psi1); 
-                else if(this->integrator == Integrator::IMPORTANCE_PATHTRACING)
-                    theta = asin( sqrt(psi1) );
-
-                // compute the sample direction to gather light from
-                Vector3 w_i = (hitInfo.normal * cos(theta)) +
-                              (orthonormalBasis[1] * (sin(theta) * cos(fi))) +
-                              (orthonormalBasis[2] * (sin(theta) * sin(fi)));
-
-                w_i.normalize();
+                // generate random around normal
+                Vector3 w_i = hitInfo.normal.generateRandomVectorWithinHemisphere(randomFactor);
 
                 // create ray
                 Ray sampleRay = Ray(hitInfo.hitPosition, w_i).translateRayOrigin(getShadowRayEpsilon());
 
                 // get color of sampled ray
-                Color sampleColor = getRayColor(sampleRay, recursionDepth - 1, backfaceCulling);
+                Color sampleColor = getRayColor(sampleRay, recursionDepth - 1, backfaceCulling, true);
 
                 if(!sampleColor.isBlack())
                 {
@@ -260,7 +251,18 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
                     Color pathTracedColor = hitInfo.material.getBRDF().computeReflectedLight(sampleRay, hitInfo, incidentLight);
 
                     // 1 / p(w)
-                    float _1_pw = 2 * M_PI;
+                    float _1_pw = 1.f;
+
+                    // divide by prop
+                    switch(this->integrator)
+                    {
+                        case Integrator::UNIFORM_PATHTRACING:
+                            _1_pw = 1 / SPHERE_UNIFORM_SAMPLING_PROP;
+                            break;
+                        case Integrator::IMPORTANCE_PATHTRACING:
+                            _1_pw = 1 / SPHERE_UNIFORM_SAMPLING_PROP; // TODO
+                            break;
+                    }
 
                     color += pathTracedColor.intensify(_1_pw);
                 }
@@ -288,10 +290,14 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
             }
         }
 
-        return color;           
+        return color;
     }
     else
     {
-        return this->backgroundColor;
+        if(sphericalEnvLight)
+        {
+            return sphericalEnvLight->getColor(ray.getDirection());
+        }
+        else return this->backgroundColor;
     }
 }

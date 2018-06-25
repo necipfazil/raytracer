@@ -12,7 +12,8 @@
 
 using namespace tinyply;
 
-Pair< std::vector<Vec3f>, std::vector<Vec3i> >
+// vertexData, meshVertexIndices, texCoordData(if applicable)
+Triple< std::vector<Vec3f>, std::vector<Vec3i>, std::vector<Vec2f> >
 parsePly(const std::string& filename)
 {
     std::ifstream ss(filename, std::ios::binary);
@@ -28,7 +29,7 @@ parsePly(const std::string& filename)
     file.parse_header(ss);
 
     // will read vertex and face information
-    std::shared_ptr<PlyData> tinyply_vertices, tinyply_faces;
+    std::shared_ptr<PlyData> tinyply_vertices, tinyply_faces, tinply_uvs;
 
     // read data from file
         // vertex data
@@ -57,6 +58,18 @@ parsePly(const std::string& filename)
         }
         
     }
+        // texCoordData - if applicable
+    bool hasTexCoord = false;
+    try 
+    {
+        tinply_uvs = file.request_properties_from_element("vertex", { "u", "v" });
+        hasTexCoord = true;
+    }
+    catch (const std::exception & e) 
+    {
+        hasTexCoord = false;
+    }
+    
 file.read(ss);
 
 int numberPerElement = (tinyply_faces->buffer.size_bytes() / sizeof(int)) / tinyply_faces->count;
@@ -69,6 +82,15 @@ if(numberPerElement > 4 || numberPerElement < 3)
     const size_t numVerticesBytes = tinyply_vertices->buffer.size_bytes();
     std::vector<Vec3f> vertices(tinyply_vertices->count);
     std::memcpy(vertices.data(), tinyply_vertices->buffer.get(), numVerticesBytes);
+
+    // get texcoorddata
+    std::vector<Vec2f> texCoordData;
+    if(hasTexCoord)
+    {
+        const size_t numTexCoordDataBytes = tinply_uvs->buffer.size_bytes();
+        texCoordData = std::vector<Vec2f>(tinply_uvs->count);
+        std::memcpy(texCoordData.data(), tinply_uvs->buffer.get(), numTexCoordDataBytes);
+    }
 
     // create indices vector
     const size_t numFacesBytes = tinyply_faces->buffer.size_bytes();
@@ -102,7 +124,7 @@ if(numberPerElement > 4 || numberPerElement < 3)
     }
 
     return 
-    Pair<
-        std::vector<Vec3f>, std::vector<Vec3i>
-        > (vertices, indices);
+    Triple<
+        std::vector<Vec3f>, std::vector<Vec3i>, std::vector<Vec2f>
+        > (vertices, indices, texCoordData);
 }

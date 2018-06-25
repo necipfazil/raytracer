@@ -2,6 +2,15 @@
 #include "random_number_generator.hpp"
 #include <random>
 #include <cstdlib>
+#include <iostream>
+#include <chrono>
+
+/*float getRand()
+{
+    thread_local static std::random_device rd;
+
+    return rd();
+}*/
 
 #ifdef SEEDED_RANDOMIZATION
 float getRandomBtw01()
@@ -10,12 +19,14 @@ float getRandomBtw01()
 }
 #else
 
+
 float getRandomBtw01()
 {
     thread_local static std::random_device rd;
-
+    
     return rd() / (float)rd.max();
 }
+
 #endif
 // random number in interval [-0.5, 0.5]
 float getRandom0_5()

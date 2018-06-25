@@ -1,3 +1,4 @@
+#include "../../utility/random_number_generator.hpp"
 #include "../headers/vector3.hpp"
 #include <cmath>
 #include <vector>
@@ -272,4 +273,40 @@ Vector3 Vector3::elementwiseMultiply(const Vector3& rhs) const
         y * rhs.y,
         z * rhs.z
     );
+}
+
+Vector3 Vector3::generateRandomVectorWithinHemisphere(RandomFactor randomFactor) const
+{
+    // copy this
+    Vector3 vec = *this;
+
+    // normalize
+    vec.normalize();
+
+    // generate orthonormal basis
+    std::vector<Vector3> orthonormalBasis = Vector3::generateOrthonomalBasis(vec);
+
+    // generate two random numbers
+    float psi1 = getRandomBtw01();
+    float psi2 = getRandomBtw01();
+
+    // compute angles for hemisphere
+    float theta = 0.f;
+    float fi    = 2 * M_PI * psi2;
+
+    // theta changes depending on the random factor
+    if(randomFactor == RandomFactor::UNIFORM)
+        theta = acos(psi1); 
+    else if(randomFactor == RandomFactor::IMPORTANCE)
+        theta = asin( sqrt(psi1) );
+
+    // compute the new vector
+    Vector3 w_i = (vec * cos(theta)) +
+                  (orthonormalBasis[1] * (sin(theta) * cos(fi))) +
+                  (orthonormalBasis[2] * (sin(theta) * sin(fi)));
+
+    // return sampled vector
+    w_i.normalize();
+
+    return w_i;
 }

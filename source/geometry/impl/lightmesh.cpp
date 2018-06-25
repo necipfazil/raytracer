@@ -22,7 +22,13 @@ IncidentLight LightMesh::getIncidentLight(const Scene& scene, const HitInfo& hit
     // treat it as a point light
     PointLight pointLight = PointLight(uniformPoint, this->radiance);
 
-    return pointLight.getIncidentLight(scene, hitInfo, time);
+    IncidentLight incidentLight = pointLight.getIncidentLight(scene, hitInfo, time);
+    
+    // disabling attenuation for lightmesh
+    incidentLight.intensity = this->radiance;
+
+    return incidentLight;
+
 }
 
 // Decorator

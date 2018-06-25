@@ -4,6 +4,8 @@
 #include "../image/image.hpp"
 #include "../image/color.hpp"
 #include <thread>
+#include <iostream>
+#include <chrono>
 
 
 #ifdef __CONCURRENT_BAG_TASK_DIST__
@@ -47,7 +49,7 @@ void Scene::imageFiller(Camera * camera, Image * image, Scene * scene, Concurren
 #else
 
 void Scene::imageFiller(Camera * camera, Image * image, Scene * scene, PixelMissionGenerator * pixelMissionGenerator)
-{ 
+{
     if(camera != NULL && image != NULL && scene != NULL && pixelMissionGenerator != NULL)
     {
         Vec2i pixelToFill;
@@ -55,12 +57,14 @@ void Scene::imageFiller(Camera * camera, Image * image, Scene * scene, PixelMiss
         while(pixelMissionGenerator->getPixelToFill(pixelToFill))
         {
             // Debugging block
-            /*if(!(pixelToFill.x == 135 && pixelToFill.y == 200))
+            /*int x = pixelToFill.x, y = pixelToFill.y;
+
+            if(!(x < 75 && y < 75))
             {
                 image->setColor(pixelToFill.x, pixelToFill.y, Color::Black());
                 continue;
             }*/
-            
+
             const std::vector<Ray> raysToSample = camera->getRays(pixelToFill.x, pixelToFill.y);
 
             Color rayColor = Color::Black();
@@ -86,6 +90,9 @@ void Scene::imageFiller(Camera * camera, Image * image, Scene * scene, PixelMiss
             // normalize color
             rayColor = rayColor / sumOfWeights;
 
+            // if needed, apply gamma correction
+            // TODO
+
             // set color
             image->setColor(pixelToFill.x, pixelToFill.y, rayColor);
         }
@@ -97,6 +104,54 @@ void Scene::imageFiller(Camera * camera, Image * image, Scene * scene, PixelMiss
 }
 
 #endif
+
+void dumpInfoUntilCompletion(
+    PixelMissionGenerator& missionDist, 
+    const int numberOfDashes = 60, 
+    const char completeDash = '|',
+    const char incompleteDash = '-'
+)
+{
+    float perc = 0.f;
+    int numberOfCompletedDashes = 0;
+    int numberOfIncompleteDashes = numberOfDashes;
+    bool done = false;
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    // newline
+    std::cout << std::endl;
+    
+    // while tracing is not completed
+    while(true)
+    {
+        done = missionDist.getFilledPerc(perc);
+
+        std::cout << "\r[";
+
+        numberOfCompletedDashes  = numberOfDashes * perc;
+        numberOfIncompleteDashes = numberOfDashes - numberOfCompletedDashes;
+
+        for(int i = 0; i < numberOfCompletedDashes; i++)
+            std::cout << completeDash;
+
+        for(int i = 0; i < numberOfIncompleteDashes; i++)
+            std::cout << incompleteDash;
+
+        std::cout << "] ";
+
+        // write percetange
+        printf("%3.2f", perc * 100);
+        std::cout << "%";
+
+        // write time
+        auto current_time = std::chrono::high_resolution_clock::now();
+        long sec = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
+        printf(" - %3ldm %2lds", sec / 60, sec % 60);
+
+        if(done) return;
+    }
+}
 
 void Scene::generateImages(unsigned short numberOfThreads)
 {
@@ -157,12 +212,19 @@ void Scene::generateImages(unsigned short numberOfThreads)
                 );
             }
 
+            dumpInfoUntilCompletion(missionDist);
+
+            std::cout << std::endl;
+
             // join threads (wait for all to finish their job)
             for(int i = 0; i < (int)threads.size(); i++)
             {
                 threads[i].join();
             }
         }
+
+        // apply gamma correction
+        //image.applyGammaCorrection(camera.getGammaCorrection());
 
         image.write(camera.getImageName());
 
@@ -176,7 +238,10 @@ void Scene::generateImages(unsigned short numberOfThreads)
             imageName = imageName.substr(0, extensionInd) + ".png";
 
             // tonemap&write image
-            image.write(imageName, camera.getToneMappingParam());
+            ToneMappingParam toneMappingParam = camera.getToneMappingParam();
+            toneMappingParam.gamma = camera.getGammaCorrection();
+
+            image.write(imageName, toneMappingParam);
         }
     }
     
