@@ -29,12 +29,17 @@ class Shape
 
         std::vector<Position3> getAllVertices() const;
 
+        Ray applyShapeTransformation(const Ray & originalRay) const;
+        
         Ray transformRayForIntersection(const Ray & originalRay) const;
         void transformHitInfoAfterIntersection(const Ray & originalRay, HitInfo & hitInfo) const;
 
         Shape() {}
 
         Shape(const Material& material) : material(material), hasMaterial(true) { }
+
+        // To be used as weights for making uniform selections among shapes
+        float area = 0.f;
     public:
         void setMaterial(const Material& material)
         {
@@ -42,7 +47,11 @@ class Shape
             this->material = material;
         }
 
-        virtual bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling) const = 0;
+        virtual float getArea() const { return this->area; }
+
+        virtual bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const = 0;
+
+        virtual Position3 getUniformPoint() const = 0;
 
         // destructor
         virtual ~Shape() { };

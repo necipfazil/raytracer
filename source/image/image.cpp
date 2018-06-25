@@ -14,12 +14,12 @@
 
 Image::Image(std::string fileName)
 {
-    imageMat = cv::imread(fileName, cv::IMREAD_COLOR);
+    imageMat = cv::imread(fileName, cv::IMREAD_UNCHANGED);
     cv::cvtColor(imageMat, imageMat, CV_BGR2RGB);
 
     // each pixel is defined to be float
     imageMat.convertTo(imageMat, CV_32FC3);
-
+    
     width = imageMat.cols;
     height = imageMat.rows;
 }
@@ -53,11 +53,11 @@ float Image::getGrayscaleColor(int positionX, int positionY) const
 
 Color Image::getColor(int positionX, int positionY) const
 {
-    if(positionX == width)
-        positionX--;
+    if(positionX >= width)
+        positionX = width - 1;
 
-    if(positionY == height)
-        positionY--;
+    if(positionY >= height)
+        positionY = height - 1;
 
     cv::Vec3f color = imageMat.at<cv::Vec3f>(positionY, positionX);
 
@@ -72,6 +72,38 @@ void Image::write(std::string fileName)
 
     // write
     cv::imwrite(fileName, bgrImg);
+}
+
+void Image::degamma()
+{
+    imageMat = imageMat / 255.f;
+
+    cv::pow(imageMat, 2.2f, imageMat);
+
+    imageMat = imageMat * 255.f;
+}
+
+void Image::applyGammaCorrection(float gamma)
+{
+    //cv::pow(imageMat, 1 / 2.4f, imageMat);
+    //imageMat = imageMat * 1.055f;
+    //imageMat = imageMat - 0.055f;
+    //cv::pow(this->imageMat, 1 / gamma, this->imageMat);
+
+    //cv::pow(tonemappedImage, 1 / 2.2f, tonemappedImage);
+
+    double min, max;
+    cv::minMaxLoc(imageMat, &min, &max);
+
+
+    imageMat = imageMat / max;
+
+    cv::pow(imageMat, 1 / 2.2f, imageMat);
+    //imageMat = imageMat * 1.055f;
+    //imageMat = imageMat - 0.055f;
+
+    imageMat = imageMat * max;
+
 }
 
 void Image::write(std::string fileName, ToneMappingParam toneMappingParam)
@@ -117,6 +149,8 @@ void Image::write(std::string fileName, ToneMappingParam toneMappingParam)
 
     // bring to 0-255 range
     tonemappedImage *= 255;
+
+
 
     // write
     cv::imwrite(fileName, tonemappedImage);

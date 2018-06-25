@@ -1,6 +1,7 @@
 #ifndef __STRUCTS_H__
 #define __STRUCTS_H__
 
+#include "vec2f.hpp"
 #include "vector3.hpp"
 #include "position3.hpp"
 #include "material.hpp"
@@ -40,6 +41,9 @@ struct HitInfo
     TextureInfo textureInfo;
     float t;
     float time = 0.f;
+
+    bool isLight = false;
+    Color lightColor;
 };
 
 #endif

@@ -3,15 +3,15 @@
 #include "../headers/ray.hpp"
 #include "../../scene.hpp"
 
-IncidentLight PointLight::getIncidentLight(const Scene& scene, const Position3& position, float time) const
+IncidentLight PointLight::getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const
 {
     IncidentLight result;
 
-    Vector3 hit2light = position.to(this->position);
+    Vector3 hit2light = hitInfo.hitPosition.to(this->position);
 
     // check if in shadow
         // first, create the shadow ray
-    Ray shadowRay(position, hit2light);
+    Ray shadowRay(hitInfo.hitPosition, hit2light);
 
     // set time for ray creation
     shadowRay.setTimeCreated(time);
@@ -21,11 +21,12 @@ IncidentLight PointLight::getIncidentLight(const Scene& scene, const Position3& 
 
     HitInfo shadowRayHitInfo;
 
-    // TODO: Null check
-    if( scene.getBVH()->hit(shadowRay, shadowRayHitInfo, true) )
+    if(scene.getBVH() && scene.getBVH()->hit(shadowRay, shadowRayHitInfo, false, true) )
     {   
         float hitPointToLightT = shadowRay.getTValue(this->position);
 
+        // light and the object to shadow may reside at the same position
+        // .. therefore, use shadow ray epsilon as the least amount for valid shadowing
         result.inShadow = hitPointToLightT > shadowRayHitInfo.t;
     }
     else

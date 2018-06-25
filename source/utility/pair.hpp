@@ -12,4 +12,16 @@ class Pair
             : p1(p1), p2(p2) { }
 };
 
+template<class P1, class P2, class P3>
+class Triple
+{
+    public:
+        const P1 p1;
+        const P2 p2;
+        const P3 p3;
+        
+        Triple(const P1 & p1, const P2 & p2, const P3 & p3)
+            : p1(p1), p2(p2), p3(p3) { }
+};
+
 #endif

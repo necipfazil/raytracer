@@ -210,6 +210,8 @@ class ImageTexture : public Texture
         void setAppearanceMode(const AppearanceMode& appMode) { this->appMode = appMode; }
         void setNormalizer(float normalizer) { image.setNormalizer(normalizer); }
 
+        void degammaImage() { image.degamma(); }
+
         Color getInterpolatedColor(float u, float v) const;
         Vec2f getGradient(float u, float v) const;
 };

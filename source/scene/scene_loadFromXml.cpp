@@ -9,12 +9,16 @@
 #include "../geometry/headers/arealight.hpp"
 #include "../geometry/headers/spot_light.hpp"
 #include "../geometry/headers/directional_light.hpp"
+#include "../geometry/headers/lightsphere.hpp"
+#include "../geometry/headers/lightmesh.hpp"
 #include "../geometry/headers/brdf.hpp"
 #include "../image/image.hpp"
 #include "../utility/ply_parser.hpp"
 #include "../utility/pair.hpp"
+#include "../utility/binf_parser.hpp"
 #include <string>
 #include <sstream>
+#include <map>
 
 
 // read Position3 from stream to Position3 instance
@@ -27,6 +31,7 @@ bool doesHaveChild(tinyxml2::XMLElement* element, std::string childNameHoldingIn
 {
     return element = element->FirstChildElement(childNameHoldingInfo.data());
 }
+
 
 Transformation
 parseObjectTransformation(
@@ -105,7 +110,7 @@ createMeshTriangles(
     const std::vector<Vec3i>& meshVertexIndices,
     ShadingMode shadingMode = ShadingMode::FLAT,
     Texture* texture = nullptr,
-    const std::vector<Vec2i> & texCoordData = std::vector<Vec2i>(),
+    const std::vector<Vec2f> & texCoordData = std::vector<Vec2f>(),
     int textureOffset = 0
 )
 {
@@ -148,6 +153,22 @@ createMeshTriangles(
                 vertexDataCopy[meshVertexIndices[i].z],  // v2
                 shadingMode
             );
+
+            // check texture
+            if(texture)
+            {
+                triangle->setTexture(texture);
+                
+                // texCoord
+                if(texture->getTextureType() == TextureType::IMAGE)
+                {    
+                    triangle->setTexCoord(
+                        texCoordData[meshVertexIndices[i].x + textureOffset],
+                        texCoordData[meshVertexIndices[i].y + textureOffset],
+                        texCoordData[meshVertexIndices[i].z + textureOffset]
+                    );
+                }
+            }
 
             // push the triangle to the surfaces vector
             trianglesOfMesh.push_back((Surface*)(triangle));
@@ -318,11 +339,40 @@ Camera parseCamera(tinyxml2::XMLElement* element)
     if(doesHaveChild(element, "FovY"))
         camera.setFovY(parseChild<float>(element, "FovY"));
 
+    // Clamp Value
+    if(doesHaveChild(element, "ClampSamples"))
+        camera.setClamp(parseChild<float>(element, "ClampSamples"));
+
     // ToneMapping
     if(doesHaveChild(element, "Tonemap"))
     {
         camera.setToneMapping(parseToneMapping(element->FirstChildElement("Tonemap")));
     }
+
+    // GammaCorrection
+    if(doesHaveChild(element, "GammaCorrection"))
+    {
+        if(parseChild<std::string>(element, "GammaCorrection") == "sRGB")
+        {
+            camera.setGammaCorrection(Camera::GammaCorrection::SRGB);
+        }
+    }
+
+    // Handedness
+    const char * handedness = element->Attribute("handedness");
+
+    if(handedness)
+    {
+        if(handedness[0] == 'l')
+        {
+            camera.setHandedness(Camera::Handedness::LEFT);
+        }
+        else if(handedness[0] == 'r')
+        {
+            camera.setHandedness(Camera::Handedness::RIGHT);
+        }
+    }
+
 
     // if camera type is simple, make required computations and set other fields
     const char * cameraType = element->Attribute("type");
@@ -608,6 +658,12 @@ ImageTexture* parseImageTexture(tinyxml2::XMLElement* element)
         texture->setImage(imageName);
     }
 
+    // Degamma
+    const char * degamma = element->Attribute("degamma");
+    bool isDegamma = degamma && degamma[0] == 't';
+
+    if(isDegamma) texture->degammaImage();
+
     // Interpolation
     if(doesHaveChild(element, "Interpolation"))
     {
@@ -641,6 +697,11 @@ ImageTexture* parseImageTexture(tinyxml2::XMLElement* element)
                 texture->setAppearanceMode(AppearanceMode::REPEAT);
                 break;
         }
+    }
+    else
+    {
+        // default
+        texture->setAppearanceMode(AppearanceMode::REPEAT);
     }
 
     // decal mode
@@ -751,26 +812,6 @@ Texture* parseTexture(tinyxml2::XMLElement* element)
         if(imageName != "perlin")
         {
             texture = parseImageTexture(element);
-
-
-            // TODO
-            /*
-            ImageTexture imgText = *(ImageTexture*)texture;
-
-            const Image& img = imgText.getImage();
-            Image newImg(img.getWidth(), img.getHeight());
-
-            for(int x = 0; x < img.getWidth(); x++)
-            {
-                for(int y = 0; y < img.getHeight(); y++)
-                {
-                    newImg.setColor(x, y, img.getColor(x, y));
-                }
-            }
-            newImg.write("new.jpeg");
-            exit(0);
-*/
-            // TODO
         }
         else
         {
@@ -794,391 +835,27 @@ Texture* parseTexture(tinyxml2::XMLElement* element)
     return texture;
 }
 
-void Scene::loadFromXml(const std::string& filepath)
+// parse a mesh and its instances
+std::vector<Shape*>
+parseMesh(
+    tinyxml2::XMLElement* meshElement,
+    tinyxml2::XMLElement* objects,
+    const std::vector<Translation>& translations,
+    const std::vector<Scaling>& scalings,
+    const std::vector<Rotation>& rotations,
+    const std::map<int, Texture*>& textures,
+    const std::vector<Vertex>& vertexData,
+    const std::vector<Vec2f>& texCoordData,
+    const std::vector<Material>& materials
+    )
 {
-    tinyxml2::XMLDocument file;
-    std::stringstream stream;
-
     std::vector<Shape*> shapes;
 
-    // transformation vectors
-    std::vector<Scaling> scalings;
-    std::vector<Translation> translations;
-    std::vector<Rotation> rotations;
-    std::vector<Texture*> textures; // to be cleaned after required assignments
-    std::vector<Vec2i> texCoordData;
+    if(meshElement == nullptr)
+        return shapes;
 
-    std::vector<BRDF> brdfs;
+    std::stringstream stream;
     
-    auto res = file.LoadFile(filepath.data());
-    if (res)
-    {
-        throw std::runtime_error("Error: The xml file cannot be loaded.");
-    }
-
-    // read the root (scene)
-    auto root = file.FirstChild();
-    if (!root)
-    {
-        throw std::runtime_error("Error: Root is not found.");
-    }
-
-    //
-    // BackgroundColor
-    //
-    auto element = root->FirstChildElement("BackgroundColor");
-    this->backgroundColor = parseBackgroundColor(element);
-
-    //
-    // ShadowRayEpsilon
-    //
-    element = root->FirstChildElement("ShadowRayEpsilon");
-    if (element)
-    {
-        stream << element->GetText() << std::endl;
-    }
-    else
-    {
-        // if not specified, get it as 0.001
-        stream << DEFAULT_SHADOW_RAY_EPSILON << std::endl;
-    }
-
-    stream >> this->shadowRayEpsilon;
-
-    //
-    // MaxRecursionDepth
-    //
-    element = root->FirstChildElement("MaxRecursionDepth");
-    if (element)
-    {
-        stream << element->GetText() << std::endl;
-    }
-    else
-    {
-        // if not specified, get as 0
-        stream << DEFAULT_MAXRECURSIONDEPTH << std::endl;
-    }
-
-    stream >> this->maxRecursionDepth;
-
-    //
-    // Camera
-    //
-    {
-        element = root->FirstChildElement("Cameras");
-        element = element->FirstChildElement("Camera");
-
-        while (element)
-        {
-            // parse camera info
-            this->cameras.push_back(parseCamera(element));
-
-            // read next camera sibling
-            element = element->NextSiblingElement("Camera");
-        }
-    }
-    
-    //
-    // Lights
-    //
-    element = root->FirstChildElement("Lights");
-        //
-        // ambient light
-        //
-    auto child = element->FirstChildElement("AmbientLight");
-    stream << child->GetText() << std::endl;
-    stream >> this->ambientLight;
-        //
-        // point lights
-        //
-    element = element->FirstChildElement("PointLight");
-    while (element)
-    {
-        Light* light = (Light*) new PointLight(parsePointLight(element));
-        this->lights.push_back(light);
-        //this->pointLights.push_back(parsePointLight(element));
-
-        // read the next point light sibling
-        element = element->NextSiblingElement("PointLight");
-    }
-        //
-        // area lights
-        //
-    element = root->FirstChildElement("Lights");
-    element = element->FirstChildElement("AreaLight");
-    while (element)
-    {
-        Light* light = (Light*) new AreaLight(parseAreaLight(element));
-        this->lights.push_back(light);
-
-        //this->areaLights.push_back(parseAreaLight(element));
-
-        // read the next area light sibling
-        element = element->NextSiblingElement("AreaLight");
-    }
-        //
-        // directional lights
-        //
-    element = root->FirstChildElement("Lights");
-    element = element->FirstChildElement("DirectionalLight");
-    while(element)
-    {
-        Vector3 direction, radiance;
-
-        if(doesHaveChild(element, "Direction"))
-        {
-            direction = parseChild<Vector3>(element, "Direction");
-        }
-
-        if(doesHaveChild(element, "Radiance"))
-        {
-            radiance = parseChild<Vector3>(element, "Radiance");
-        }
-
-        Light* light = (Light*) new DirectionalLight(direction, radiance);
-        this->lights.push_back(light);
-
-        //this->directionalLights.push_back(DirectionalLight(direction, radiance));
-
-        // read the next sibling
-        element = element->NextSiblingElement("DirectionalLight");
-    }
-        //
-        // spot lights
-        //
-    element = root->FirstChildElement("Lights");
-    element = element->FirstChildElement("SpotLight");
-    while(element)
-    {
-        Light* light = (Light*) new SpotLight(parseSpotLight(element));
-        this->lights.push_back(light);
-
-        //this->spotLights.push_back(parseSpotLight(element));
-
-        // read the next sibling
-        element = element->NextSiblingElement("SpotLight");
-    }
-
-    //
-    // BRDFs
-    //
-    element = root->FirstChildElement("BRDFs");
-
-    if(element)
-    {
-        // TODO: id assignment is not done properly
-
-        // OriginalPhong
-        auto child = element->FirstChildElement("OriginalPhong");
-        while(child)
-        {
-            BRDF brdf = parseBRDF(child);
-
-            // mode
-            brdf.setMode(BRDF::Mode::PHONG);
-
-            // push to brdfs vector
-            brdfs.push_back(brdf);
-            
-            child = child->NextSiblingElement("OriginalPhong");
-        }
-        
-        // ModifiedPhong
-        child = element->FirstChildElement("ModifiedPhong");
-        while(child)
-        {
-            BRDF brdf = parseBRDF(child);
-
-            // mode
-            brdf.setMode(BRDF::Mode::PHONG_MODIFIED);
-
-            // push to brdfs vector
-            brdfs.push_back(brdf);
-            
-            child = child->NextSiblingElement("ModifiedPhong");
-        }
-
-        // OriginalBlinnPhong
-        child = element->FirstChildElement("OriginalBlinnPhong");
-        while(child)
-        {
-            BRDF brdf = parseBRDF(child);
-
-            // mode
-            brdf.setMode(BRDF::Mode::BLINNPHONG);
-
-            // push to brdfs vector
-            brdfs.push_back(brdf);
-            
-            child = child->NextSiblingElement("OriginalBlinnPhong");
-        }
-
-        // ModifiedBlinnPhong
-        child = element->FirstChildElement("ModifiedBlinnPhong");
-        while(child)
-        {
-            BRDF brdf = parseBRDF(child);
-
-            // mode
-            brdf.setMode(BRDF::Mode::BLINNPHONG_MODIFIED);
-
-            // push to brdfs vector
-            brdfs.push_back(brdf);
-            
-            child = child->NextSiblingElement("ModifiedBlinnPhong");
-        }
-
-        // TorranceSparrow
-        child = element->FirstChildElement("TorranceSparrow");
-        while(child)
-        {
-            BRDF brdf = parseBRDF(child);
-
-            // mode
-            brdf.setMode(BRDF::Mode::TORRANCE_SPARROW);
-
-            // push to brdfs vector
-            brdfs.push_back(brdf);
-            
-            child = child->NextSiblingElement("TorranceSparrow");
-        }
-    }
-
-    //
-    // Materials
-    //
-    element = root->FirstChildElement("Materials");
-    element = element->FirstChildElement("Material");
-    
-    while (element)
-    {
-        this->materials.push_back(parseMaterial(element, brdfs));
-
-        // read next material sibling
-        element = element->NextSiblingElement("Material");
-    }
-
-    //
-    // Textures
-    //
-    element = root->FirstChildElement("Textures");
-
-    if(element)
-        element = element->FirstChildElement("Texture");
-    
-    while(element)
-    {
-        textures.push_back(parseTexture(element));
-        
-        element = element->NextSiblingElement("Texture");
-    }
-
-    //
-    // TexCoordData
-    //
-
-    element = root->FirstChildElement("TexCoordData");
-
-    if(element)
-    {
-        stream << element->GetText() << std::endl;
-
-        // read from stream and push to texCoordData vector
-        int x, y;
-        while (!(stream >> x).eof())
-        {
-            stream >> y;
-            texCoordData.push_back(Vec2i(x, y)); // 0-index
-        }
-    }
-
-    stream.clear();
-
-    //
-    // Transformations
-    //
-    element = root->FirstChildElement("Transformations");
-
-    if(element)
-    {
-        // read scalings
-        child = element->FirstChildElement("Scaling");
-
-        while(child)
-        {
-            stream << child->GetText() << std::endl;
-            
-            float x, y, z;
-
-            stream >> x >> y >> z;
-            
-            scalings.push_back(Scaling(x, y, z));
-            
-            child = child->NextSiblingElement("Scaling");
-        }
-
-        // read translations
-        child = element->FirstChildElement("Translation");
-
-        while(child)
-        {
-            stream << child->GetText() << std::endl;
-        
-            float x, y, z;
-
-            stream >> x >> y >> z;
-            
-            translations.push_back(Translation(x, y, z));
-            
-            child = child->NextSiblingElement("Translation");
-        }
-
-        // read rotations
-        child = element->FirstChildElement("Rotation");
-
-        while(child)
-        {
-            stream << child->GetText() << std::endl;
-        
-            float angle, x, y, z;
-
-            stream >> angle >> x >> y >> z;
-            
-            rotations.push_back(Rotation(angle, Vector3(x, y, z)));
-            
-            child = child->NextSiblingElement("Rotation");
-        }
-    }
-
-    stream.clear();
-    
-    //
-    // Vertex Data
-    //
-        // read to stream
-    element = root->FirstChildElement("VertexData");
-    if(element)
-    {
-        stream << element->GetText() << std::endl;
-            // read from stream and push to vertex data vector
-        Position3 vertex;
-        while (!(stream >> vertex).eof())
-        {
-            vertexData.push_back(vertex);
-        }
-
-        stream.clear();
-    }
-
-
-    //
-    // Mesh
-    //
-        // simply read meshes as triangles, so that the problem simplifies
-    auto objects = root->FirstChildElement("Objects");
-    element = objects->FirstChildElement("Mesh");
-    while (element)
-    {
         std::vector<Shape*> trianglesOfMesh;
         Texture* texture = nullptr;
 
@@ -1193,14 +870,14 @@ void Scene::loadFromXml(const std::string& filepath)
         Transformation transformation;
         
         // read mesh id
-        element->QueryAttribute("id", &meshId);
+        meshElement->QueryAttribute("id", &meshId);
         
         // read material id
-        if(doesHaveChild(element, "Material"))
-            materialId = parseChild<int>(element, "Material") - 1;
+        if(doesHaveChild(meshElement, "Material"))
+            materialId = parseChild<int>(meshElement, "Material") - 1;
 
         // read shading mode
-        const char * shadingModeString = element->Attribute("shadingMode");
+        const char * shadingModeString = meshElement->Attribute("shadingMode");
         if(shadingModeString)
         {
             switch(*shadingModeString)
@@ -1217,59 +894,90 @@ void Scene::loadFromXml(const std::string& filepath)
         }
         
         // read transformations
-        if(doesHaveChild(element, "Transformations"))
+        if(doesHaveChild(meshElement, "Transformations"))
         {
             hasTransformation = true;
-            transformation = parseObjectTransformation(element, translations, scalings, rotations);
+            transformation = parseObjectTransformation(meshElement, translations, scalings, rotations);
         }
 
         // read motion blur
-        if(doesHaveChild(element, "MotionBlur"))
+        if(doesHaveChild(meshElement, "MotionBlur"))
         {
             hasMotionBlur = true;
-            motionBlur = parseChild<Vector3>(element, "MotionBlur");
+            motionBlur = parseChild<Vector3>(meshElement, "MotionBlur");
         }
 
         // read texture
-        if(doesHaveChild(element, "Texture"))
+        if(doesHaveChild(meshElement, "Texture"))
         {
-            int textureId = parseChild<int>(element, "Texture") - 1;
-
-            texture = textures[textureId];
+            int textureId = parseChild<int>(meshElement, "Texture");
+            texture = textures.at(textureId);
         }
 
-        stream.clear();
-
         // read faces
-        child = element->FirstChildElement("Faces");
+        auto child = meshElement->FirstChildElement("Faces");
         
-        // check if to be read from ply
+        // check if to be read from ply or bin file
+        // .. otherwise, parse in default mode
         const char * plyFileName = child->Attribute("plyFile");
+        const char * binFileName = child->Attribute("binaryFile");
         if(plyFileName)
         {
-            Pair< std::vector<Vec3f>, std::vector<Vec3i> > plyMesh = parsePly(plyFileName);
+            // vertexData, meshVertexIndices, texCoordData(if applicable)
+            Triple< std::vector<Vec3f>, std::vector<Vec3i>, std::vector<Vec2f> > plyMesh = parsePly(plyFileName);
 
             // copy position data as Vertex and copy meshVertexIndices
             std::vector<Vertex> vertexData;
             std::vector<Vec3i> meshVertexIndices(plyMesh.p2);
+            const std::vector<Vec2f>& texCoordData = plyMesh.p3;
 
             for(int i = 0; i < plyMesh.p1.size(); i++)
             {
                 vertexData.push_back(Vertex(plyMesh.p1[i].x, plyMesh.p1[i].y, plyMesh.p1[i].z));
             }
 
-            // TODO: No support for ply with texture
             trianglesOfMesh = createMeshTriangles(
                 vertexData,
                 meshVertexIndices,
-                shadingMode
+                shadingMode,
+                texture,
+                texCoordData
             );
 
+            // if has texture, make each triangle have its own material
+            if(texture)
+            {
+                for(int i = 0; i < trianglesOfMesh.size(); i++)
+                {
+                    trianglesOfMesh[i]->setMaterial(materials[materialId]);
+                }
+            }
+        }
+        else if(binFileName)
+        {
+            std::vector<Vec3i> meshVertexIndices = parseMeshFaces(binFileName);
+
+            trianglesOfMesh = createMeshTriangles(
+                vertexData,
+                meshVertexIndices,
+                shadingMode,
+                texture,
+                texCoordData
+            );
+
+            // if has texture, make each triangle have its own material
+            if(texture)
+            {
+                for(int i = 0; i < trianglesOfMesh.size(); i++)
+                {
+                    trianglesOfMesh[i]->setMaterial(materials[materialId]);
+                }
+            }
         }
         else
         {
             // no ply file is supplied - get mesh information from xml file
-            child = element->FirstChildElement("Faces");
+            child = meshElement->FirstChildElement("Faces");
             stream << child->GetText() << std::endl;
 
             // get vertex offset
@@ -1411,68 +1119,20 @@ void Scene::loadFromXml(const std::string& filepath)
         // push the BVH of shape to main vector
         shapes.push_back(meshBVH);
 
-        element = element->NextSiblingElement("Mesh");
-    }
+        // return a vector of shapes
+}
 
-    stream.clear();
-
-    //
-    // Triangles
-    //
-    element = root->FirstChildElement("Objects");
-    element = element->FirstChildElement("Triangle");
-
-    while (element)
-    {
-        int v0_id, v1_id, v2_id, materialId;
-        
-        // material id
-        if(doesHaveChild(element, "Material"))
-            materialId = parseChild<int>(element, "Material") - 1;
-
-        // read vertex indices
-        child = element->FirstChildElement("Indices");
-        stream << child->GetText() << std::endl;
-        stream >> v0_id >> v1_id >> v2_id;
-
-        // create triangle
-        Triangle * triangle = new Triangle(
-            materials[materialId],          // material
-            Position3(vertexData[v0_id - 1]),   // v0
-            Position3(vertexData[v1_id - 1]),   // v1
-            Position3(vertexData[v2_id - 1])    // v2
-        );
-
-        // transformations
-        if(doesHaveChild(element, "Transformations"))
-        {
-            Transformation transformation = parseObjectTransformation(element, translations, scalings, rotations);
-            triangle->transform(transformation);
-        }
-
-        // motion blur
-        if(doesHaveChild(element, "MotionBlur"))
-        {
-            Vector3 motionBlur = parseChild<Vector3>(element, "MotionBlur");
-            triangle->setMotionBlur(motionBlur);
-        }
-        
-        // push the triangle to the surfaces vector
-        shapes.push_back((Shape*)(triangle));
-                
-        element = element->NextSiblingElement("Triangle");
-    }
-
-    stream.clear();
-
-    //
-    // Spheres
-    //
-    element = root->FirstChildElement("Objects");
-    element = element->FirstChildElement("Sphere");
-
-    while (element)
-    {
+Sphere*
+parseSphere(
+    tinyxml2::XMLElement* element,
+    const std::vector<Vertex>& vertexData,
+    const std::vector<Material>& materials,
+    const std::vector<Translation>& translations,
+    const std::vector<Scaling>& scalings,
+    const std::vector<Rotation>& rotations,
+    const std::map<int, Texture*>& textures
+    )
+{
         int centerVertexId, materialId;
         float radius;
 
@@ -1514,17 +1174,656 @@ void Scene::loadFromXml(const std::string& filepath)
         // texture
         if(doesHaveChild(element, "Texture"))
         {
-            int textureId = parseChild<int>(element, "Texture") - 1;
+            int textureId = parseChild<int>(element, "Texture");
             
-            sphere->setTexture(textures[textureId]);
+            sphere->setTexture(textures.at(textureId));
+        }
+
+        return sphere;
+}
+
+void Scene::loadFromXml(const std::string& filepath)
+{
+    tinyxml2::XMLDocument file;
+    std::stringstream stream;
+
+    std::vector<Shape*> shapes;
+
+    // transformation vectors
+    std::vector<Scaling> scalings;
+    std::vector<Translation> translations;
+    std::vector<Rotation> rotations;
+    //std::vector<Texture*> textures; // to be cleaned after required assignments
+    std::map<int, Texture*> textures; // textures with ids
+    std::vector<Vec2f> texCoordData;
+
+    std::vector<BRDF> brdfs;
+    
+    auto res = file.LoadFile(filepath.data());
+    if (res)
+    {
+        throw std::runtime_error("Error: The xml file cannot be loaded.");
+    }
+
+    // read the root (scene)
+    auto root = file.FirstChild();
+    if (!root)
+    {
+        throw std::runtime_error("Error: Root is not found.");
+    }
+
+    //
+    // BackgroundColor
+    //
+    auto element = root->FirstChildElement("BackgroundColor");
+    this->backgroundColor = parseBackgroundColor(element);
+
+    //
+    // Integrator
+    //
+    element = root->FirstChildElement("Integrator");
+    if(element)
+    {
+        stream << element->GetText() << std::endl;
+
+        std::string text;
+        stream >> text;
+        stream.clear();
+
+        if(text == "PathTracing")
+        {
+            // check IntegratorParams
+            element = root->FirstChildElement("IntegratorParams");
+
+            if(element)
+            {
+                stream << element->GetText() << std::endl;
+                stream >> text;
+                stream.clear();
+
+                if(text == "ImportanceSampling")
+                {
+                    // importance
+                    this->integrator = Integrator::IMPORTANCE_PATHTRACING;
+                }
+                else
+                {
+                    this->integrator = Integrator::UNIFORM_PATHTRACING;
+                }
+            }
+            else 
+            {
+                // default path tracing: uniform
+                this->integrator = Integrator::UNIFORM_PATHTRACING;
+            }
+        }
+        else 
+        {
+            this->integrator = Integrator::DEFAULT;
+        }
+    }
+    else
+    {
+        this->integrator = Integrator::DEFAULT;
+    }
+
+    //
+    // ShadowRayEpsilon
+    //
+    element = root->FirstChildElement("ShadowRayEpsilon");
+    if (element)
+    {
+        stream << element->GetText() << std::endl;
+    }
+    else
+    {
+        // if not specified, get it as 0.001
+        stream << DEFAULT_SHADOW_RAY_EPSILON << std::endl;
+    }
+
+    stream >> this->shadowRayEpsilon;
+
+    //
+    // MaxRecursionDepth
+    //
+    element = root->FirstChildElement("MaxRecursionDepth");
+    if (element)
+    {
+        stream << element->GetText() << std::endl;
+    }
+    else
+    {
+        // if not specified, get as 0
+        stream << DEFAULT_MAXRECURSIONDEPTH << std::endl;
+    }
+
+    stream >> this->maxRecursionDepth;
+
+    //
+    // Camera
+    //
+    {
+        element = root->FirstChildElement("Cameras");
+        element = element->FirstChildElement("Camera");
+
+        while (element)
+        {
+            // parse camera info
+            this->cameras.push_back(parseCamera(element));
+
+            // read next camera sibling
+            element = element->NextSiblingElement("Camera");
+        }
+    }
+    
+    //
+    // Lights
+    //
+    element = root->FirstChildElement("Lights");
+        //
+        // ambient light
+        //
+    if(element)
+    {
+        auto child = element->FirstChildElement("AmbientLight");
+        if(child)
+        {
+            stream << child->GetText() << std::endl;
+            stream >> this->ambientLight;
+        }
+    }
+        //
+        // spherical environment light
+        //
+    if(element)
+    {
+        auto child = element->FirstChildElement("SphericalDirectionalLight");
+        if(child)
+        {
+            std::string imagePath = parseChild<std::string>(child, "EnvMapName");
+
+            // add as environment map
+            this->sphericalEnvLight = new SphericalEnvLight(imagePath);
+
+            // add as light
+            lights.push_back(new SphericalEnvLight(*this->sphericalEnvLight));
+        }
+    }
+    
+        //
+        // point lights
+        //
+    if(element)
+        element = element->FirstChildElement("PointLight");
+
+    while (element)
+    {
+        Light* light = (Light*) new PointLight(parsePointLight(element));
+        this->lights.push_back(light);
+        //this->pointLights.push_back(parsePointLight(element));
+
+        // read the next point light sibling
+        element = element->NextSiblingElement("PointLight");
+    }
+        //
+        // area lights
+        //
+    element = root->FirstChildElement("Lights");
+    if(element)
+        element = element->FirstChildElement("AreaLight");
+
+    while (element)
+    {
+        Light* light = (Light*) new AreaLight(parseAreaLight(element));
+        this->lights.push_back(light);
+
+        //this->areaLights.push_back(parseAreaLight(element));
+
+        // read the next area light sibling
+        element = element->NextSiblingElement("AreaLight");
+    }
+        //
+        // directional lights
+        //
+    element = root->FirstChildElement("Lights");
+    if(element)
+        element = element->FirstChildElement("DirectionalLight");
+
+    while(element)
+    {
+        Vector3 direction, radiance;
+
+        if(doesHaveChild(element, "Direction"))
+        {
+            direction = parseChild<Vector3>(element, "Direction");
+        }
+
+        if(doesHaveChild(element, "Radiance"))
+        {
+            radiance = parseChild<Vector3>(element, "Radiance");
+        }
+
+        Light* light = (Light*) new DirectionalLight(direction, radiance);
+        this->lights.push_back(light);
+
+        //this->directionalLights.push_back(DirectionalLight(direction, radiance));
+
+        // read the next sibling
+        element = element->NextSiblingElement("DirectionalLight");
+    }
+        //
+        // spot lights
+        //
+    element = root->FirstChildElement("Lights");
+    if(element)
+        element = element->FirstChildElement("SpotLight");
+
+    while(element)
+    {
+        Light* light = (Light*) new SpotLight(parseSpotLight(element));
+        this->lights.push_back(light);
+
+        //this->spotLights.push_back(parseSpotLight(element));
+
+        // read the next sibling
+        element = element->NextSiblingElement("SpotLight");
+    }
+
+    //
+    // BRDFs
+    //
+    element = root->FirstChildElement("BRDFs");
+
+    if(element)
+    {
+        // TODO: id assignment is not done properly
+
+        // OriginalPhong
+        auto child = element->FirstChildElement("OriginalPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::PHONG);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("OriginalPhong");
         }
         
+        // ModifiedPhong
+        child = element->FirstChildElement("ModifiedPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::PHONG_MODIFIED);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("ModifiedPhong");
+        }
+
+        // OriginalBlinnPhong
+        child = element->FirstChildElement("OriginalBlinnPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::BLINNPHONG);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("OriginalBlinnPhong");
+        }
+
+        // ModifiedBlinnPhong
+        child = element->FirstChildElement("ModifiedBlinnPhong");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::BLINNPHONG_MODIFIED);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("ModifiedBlinnPhong");
+        }
+
+        // TorranceSparrow
+        child = element->FirstChildElement("TorranceSparrow");
+        while(child)
+        {
+            BRDF brdf = parseBRDF(child);
+
+            // mode
+            brdf.setMode(BRDF::Mode::TORRANCE_SPARROW);
+
+            // push to brdfs vector
+            brdfs.push_back(brdf);
+            
+            child = child->NextSiblingElement("TorranceSparrow");
+        }
+    }
+
+    //
+    // Materials
+    //
+    element = root->FirstChildElement("Materials");
+    element = element->FirstChildElement("Material");
+    
+    while (element)
+    {
+        this->materials.push_back(parseMaterial(element, brdfs));
+
+        // read next material sibling
+        element = element->NextSiblingElement("Material");
+    }
+
+    //
+    // Textures
+    //
+    element = root->FirstChildElement("Textures");
+
+    if(element)
+        element = element->FirstChildElement("Texture");
+    
+    while(element)
+    {
+        // parse id
+        int textureId;
+        element->QueryAttribute("id", &textureId);
+
+        // parse texture
+        Texture* texture = parseTexture(element);
+        textures.insert( std::pair<int, Texture*>(textureId, texture) );
+        //textures.push_back(texture);
+        
+        element = element->NextSiblingElement("Texture");
+    }
+
+    //
+    // TexCoordData
+    //
+
+    element = root->FirstChildElement("TexCoordData");
+
+    if(element)
+    {
+        const char * binFileName = element->Attribute("binaryFile");
+
+        if(binFileName)
+        {
+            texCoordData = parseTexCoordData(binFileName);                
+
+            std::cout << std::endl;
+        }
+        else
+        {
+            stream << element->GetText() << std::endl;
+
+            // read from stream and push to texCoordData vector
+            int x, y;
+            while (!(stream >> x).eof())
+            {
+                stream >> y;
+                texCoordData.push_back(Vec2f(x, y)); // 0-index
+            }
+        }
+    }
+
+    stream.clear();
+
+    //
+    // Transformations
+    //
+    element = root->FirstChildElement("Transformations");
+
+    if(element)
+    {
+        // read scalings
+        auto child = element->FirstChildElement("Scaling");
+
+        while(child)
+        {
+            stream << child->GetText() << std::endl;
+            
+            float x, y, z;
+
+            stream >> x >> y >> z;
+            
+            scalings.push_back(Scaling(x, y, z));
+            
+            child = child->NextSiblingElement("Scaling");
+        }
+
+        // read translations
+        child = element->FirstChildElement("Translation");
+
+        while(child)
+        {
+            stream << child->GetText() << std::endl;
+        
+            float x, y, z;
+
+            stream >> x >> y >> z;
+            
+            translations.push_back(Translation(x, y, z));
+            
+            child = child->NextSiblingElement("Translation");
+        }
+
+        // read rotations
+        child = element->FirstChildElement("Rotation");
+
+        while(child)
+        {
+            stream << child->GetText() << std::endl;
+        
+            float angle, x, y, z;
+
+            stream >> angle >> x >> y >> z;
+            
+            rotations.push_back(Rotation(angle, Vector3(x, y, z)));
+            
+            child = child->NextSiblingElement("Rotation");
+        }
+    }
+
+    stream.clear();
+    
+    //
+    // Vertex Data
+    //
+        // read to stream
+    element = root->FirstChildElement("VertexData");
+    if(element)
+    {
+        const char * binFileName = element->Attribute("binaryFile");
+        if(binFileName)
+        {
+            vertexData = parseVertexData(binFileName);
+        }
+        else
+        {
+            stream << element->GetText() << std::endl;
+                // read from stream and push to vertex data vector
+            Position3 vertex;
+            while (!(stream >> vertex).eof())
+            {
+                vertexData.push_back(vertex);
+            }
+
+            stream.clear();
+        }
+
+
+    }
+
+
+    //
+    // Mesh
+    //
+    auto objects = root->FirstChildElement("Objects");
+    element = objects->FirstChildElement("Mesh");
+    while (element)
+    {
+        std::vector<Shape*> meshes = 
+            parseMesh(
+                element, objects,
+                translations, scalings, rotations,
+                textures,
+                vertexData, texCoordData,
+                materials
+                );
+    
+        shapes.insert(shapes.end(), meshes.begin(), meshes.end());
+
+        element = element->NextSiblingElement("Mesh");
+    }
+
+    stream.clear();
+
+    //
+    // Triangles
+    //
+    element = root->FirstChildElement("Objects");
+    element = element->FirstChildElement("Triangle");
+
+    while (element)
+    {
+        int v0_id, v1_id, v2_id, materialId;
+        
+        // material id
+        if(doesHaveChild(element, "Material"))
+            materialId = parseChild<int>(element, "Material") - 1;
+
+        // read vertex indices
+        auto child = element->FirstChildElement("Indices");
+        stream << child->GetText() << std::endl;
+        stream >> v0_id >> v1_id >> v2_id;
+
+        // create triangle
+        Triangle * triangle = new Triangle(
+            materials[materialId],          // material
+            Position3(vertexData[v0_id - 1]),   // v0
+            Position3(vertexData[v1_id - 1]),   // v1
+            Position3(vertexData[v2_id - 1])    // v2
+        );
+
+        // transformations
+        if(doesHaveChild(element, "Transformations"))
+        {
+            Transformation transformation = parseObjectTransformation(element, translations, scalings, rotations);
+            triangle->transform(transformation);
+        }
+
+        // motion blur
+        if(doesHaveChild(element, "MotionBlur"))
+        {
+            Vector3 motionBlur = parseChild<Vector3>(element, "MotionBlur");
+            triangle->setMotionBlur(motionBlur);
+        }
+        
+        // push the triangle to the surfaces vector
+        shapes.push_back((Shape*)(triangle));
+                
+        element = element->NextSiblingElement("Triangle");
+    }
+
+    stream.clear();
+
+    //
+    // Spheres
+    //
+    element = root->FirstChildElement("Objects");
+    element = element->FirstChildElement("Sphere");
+
+    while (element)
+    {
         // push the sphere to the surfaces vector
-        shapes.push_back((Shape*)(sphere));
+        shapes.push_back(
+            (Shape*)(parseSphere(element, vertexData, materials, translations, scalings, rotations, textures))
+            );
 
         // read the next sphere sibling
         element = element->NextSiblingElement("Sphere");
     }
+
+    //
+    // Light Sphere
+    //
+    element = root->FirstChildElement("Objects");
+    element = element->FirstChildElement("LightSphere");
+    
+    while(element)
+    {
+        Vector3 radiance;
+
+        Sphere* sphere = parseSphere(element, vertexData, materials, translations, scalings, rotations, textures);
+
+        // radiance
+        if(doesHaveChild(element, "Radiance"))
+            radiance = parseChild<Vector3>(element, "Radiance");
+
+        LightSphere *light  = new LightSphere(*sphere, radiance);
+        LightSphere *lightSphere = new LightSphere(*sphere, radiance);
+
+        //delete sphere;
+
+        // push the light sphere to the required vectors
+        shapes.push_back(lightSphere);
+        lights.push_back(light);
+
+        // read the next sphere sibling
+        element = element->NextSiblingElement("LightSphere");
+    }
+
+    //
+    // Light Mesh
+    //
+    element = root->FirstChildElement("Objects");
+    element = element->FirstChildElement("LightMesh");
+
+    while(element)
+    {
+        Vector3 radiance;
+
+        // Radiance
+        if(doesHaveChild(element, "Radiance"))
+            radiance = parseChild<Vector3>(element, "Radiance");
+
+        // Mesh BVH
+        std::vector<Shape*> lightMeshes = 
+            parseMesh(
+                element, objects,
+                translations, scalings, rotations,
+                textures,
+                vertexData, texCoordData,
+                materials
+                );
+        
+        // TODO: Memory leak?
+        BoundingVolume* lightMeshBVH = (BoundingVolume*)lightMeshes[0];
+        
+        LightMesh* light = new LightMesh(lightMeshBVH, radiance);
+        LightMesh* mesh  = new LightMesh(lightMeshBVH, radiance);    
+
+        // push the lightmesh to the required vectors
+        shapes.push_back(mesh);
+        lights.push_back(light);
+
+        element = element->NextSiblingElement("LightMesh");
+    }
+
     
     // create bounding volume hiearchy
     this->BVH = BoundingVolume::createBoundingVolumeHiearchy(shapes);

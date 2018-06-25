@@ -9,7 +9,7 @@
 #include "vector3.hpp"
 #include "ray.hpp"
 #include "structs.hpp"
-
+#include "../../config.h"
 
 class Triangle : public Surface
 {
@@ -19,7 +19,7 @@ class Triangle : public Surface
 
         ShadingMode shadingMode;
 
-        Vec2i texCoord[3];
+        Vec2f texCoord[3];
 
         Position3 computeMinPosition() const;
         Position3 computeMaxPosition() const;
@@ -66,12 +66,12 @@ class Triangle : public Surface
                                      const Position3 & vertex1,
                                      const Position3 & vertex2 );
         
-        bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling) const;
+        bool hit(const Ray& ray, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const;
 
         ShadingMode getShadingMode() const { return this->shadingMode; }
         void setShadingMode(ShadingMode shadingMode) { this->shadingMode = shadingMode; }
 
-        void setTexCoord(const Vec2i& c0, const Vec2i& c1, const Vec2i& c2)
+        void setTexCoord(const Vec2f& c0, const Vec2f& c1, const Vec2f& c2)
         {
             
             texCoord[0] = c0;
@@ -82,6 +82,8 @@ class Triangle : public Surface
             std::cout << "TexCoord 1: " << c1.x << ", " << c1.y << std::endl;
             std::cout << "TexCoord 2: " << c2.x << ", " << c2.y << std::endl;*/
         }
+
+        virtual Position3 getUniformPoint() const;
 };
 
 #endif

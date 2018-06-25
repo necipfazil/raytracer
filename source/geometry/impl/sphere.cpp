@@ -20,7 +20,7 @@ bool Sphere::isIntersecting(const Ray & ray) const
     return discriminant(ray) >= 0.0;
 }
 
-bool Sphere::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling) const
+bool Sphere::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const
 {
     // set time of hit
     hitInfo.time = originalRay.getTimeCreated();
@@ -105,8 +105,8 @@ bool Sphere::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCullin
 
                 Vec2f grd = imageTexture.getGradient(u, v);
 
-                Vector3 dpPrimedu = dpdu + (hitInfo.normal * grd.u);
-                Vector3 dpPrimedv = dpdv + (hitInfo.normal * grd.v);
+                Vector3 dpPrimedu = dpdu + (hitInfo.normal * grd.x);
+                Vector3 dpPrimedv = dpdv + (hitInfo.normal * grd.y);
 
                 // update normal
                 hitInfo.normal = (dpPrimedv * dpPrimedu).normalize();

@@ -5,6 +5,7 @@
 #include "position3.hpp"
 
 class Scene;
+struct HitInfo;
 
 struct IncidentLight {
     bool inShadow;
@@ -16,7 +17,7 @@ class Light
 {
     public:
         // Compute light incident to position. Shadow check is also done by considering the scene.
-        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const = 0;
+        virtual IncidentLight getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const = 0;
 };
 
 #endif

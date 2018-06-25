@@ -22,7 +22,7 @@ class PointLight : public Light
         void setPosition(const Position3& position) { this->position = position; }
         void setIntensity(const Vector3& intensity) { this->intensity = intensity; }
 
-        virtual IncidentLight getIncidentLight(const Scene& scene, const Position3& position, float time) const;
+        virtual IncidentLight getIncidentLight(const Scene& scene, const HitInfo& hitInfo, float time) const;
 };
 
 

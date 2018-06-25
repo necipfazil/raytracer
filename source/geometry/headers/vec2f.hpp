@@ -3,11 +3,11 @@
 
 struct Vec2f
 {
-    float u, v;
+    float x, y;
 
-    Vec2f() : u(0), v(0) { }
+    Vec2f() : x(0), y(0) { }
 
-    Vec2f(float u, float v) : u(u), v(v) { }
+    Vec2f(float x, float y) : x(x), y(y) { }
 
 };
 

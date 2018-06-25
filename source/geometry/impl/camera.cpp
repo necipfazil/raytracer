@@ -133,6 +133,28 @@ void Camera::setFovY(float fovY)
     this->fovY = fovY;
 }
 
+void Camera::setHandedness(Camera::Handedness handedness)
+{
+    this->handedness = handedness;
+}
+
+void Camera::setGammaCorrection(GammaCorrection gammaCorrection)
+{
+    this->gammaCorrection = gammaCorrection;
+}
+
+float Camera::getGammaCorrection() const
+{
+    switch(gammaCorrection)
+    {
+        case SRGB:
+            return 2.2f;
+        case NONE:
+        default:
+            return 1.f;
+    }
+}
+
 void Camera::computeCoordSys(Camera::CameraType cameraType)
 {
     // if the camera type is simple, convert it to complex by filling the
@@ -157,14 +179,21 @@ void Camera::computeCoordSys(Camera::CameraType cameraType)
     vecV.normalize();
     
     // compute W
-    Vector3 vecW = -gaze;
+
+    Vector3 vecW;
+
+    if(handedness == RIGHT)
+        vecW = -gaze;
+    if(handedness == LEFT)
+        vecW = gaze;
+
     gaze.normalize();
     vecW.normalize();
     
     // compute U
-    Vector3 vecU = vecV * vecW; // cross product
+    Vector3 vecU = vecV * vecW;
     vecU.normalize();
-   
+
     // correct V
     vecV = vecW * vecU;
 

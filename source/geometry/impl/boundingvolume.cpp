@@ -23,7 +23,29 @@ bool BoundingVolume::isEnclosing(const Position3 & point) const
         point.getZ() >= bvMin.getZ() && point.getZ() <= bvMax.getZ();
 }
 
-bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling) const
+Position3 BoundingVolume::getUniformPoint() const
+{
+    float psi = getRandomBtw01() * area;
+
+    Position3 result;
+
+    if(rightNode && leftNode)
+        result = leftNode->getArea() > psi ? leftNode->getUniformPoint() : rightNode->getUniformPoint();
+    else if(leftNode)
+        result = leftNode->getUniformPoint();
+    else if(rightNode)
+        result = rightNode->getUniformPoint();
+
+    if(this->hasTransformation)
+    {
+        result = this->transformation.transform(result);
+    }
+
+    return result;
+
+}
+
+bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfaceCulling, bool opaqueSearch) const
 {
     // set time of hit
     hitInfo.time = originalRay.getTimeCreated();
@@ -36,8 +58,8 @@ bool BoundingVolume::hit(const Ray & originalRay, HitInfo & hitInfo, bool backfa
         HitInfo leftHitInfo, rightHitInfo;
 
         // make hits on both left and right
-        bool leftHit = leftNode ? leftNode->hit(hitCheckRay, leftHitInfo, backfaceCulling) : false;
-        bool rightHit = rightNode ? rightNode->hit(hitCheckRay, rightHitInfo, backfaceCulling) : false;
+        bool leftHit = leftNode ? leftNode->hit(hitCheckRay, leftHitInfo, backfaceCulling, opaqueSearch) : false;
+        bool rightHit = rightNode ? rightNode->hit(hitCheckRay, rightHitInfo, backfaceCulling, opaqueSearch) : false;
 
         bool result = leftHit || rightHit;
 
@@ -151,6 +173,11 @@ Shape* BoundingVolume::createBoundingVolumeHiearchy(
     }
 
     bvh->ownsChildren = true;
+
+    // area
+    bvh->area += bvh->leftNode  ? bvh->leftNode->getArea()  : 0;
+    bvh->area += bvh->rightNode ? bvh->rightNode->getArea() : 0;
+
     // return newly created bvh
     return bvh;
 }

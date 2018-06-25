@@ -11,7 +11,7 @@ struct ToneMappingParam
     float keyValue = .18f;
     float burnoutPercentage = 0.f;
     float saturation = 1.f;
-    float gamma = 2.2f;
+    float gamma = 1.f;
 };
 
 class Image
@@ -30,6 +30,10 @@ class Image
 
         float getGrayscaleColor(int positionX, int positionY) const;
 
+        void applyGammaCorrection(float gamma);
+        
+        void degamma();
+        
         void setColor(int positionX, int positionY, Color color);
         
         Color getColor(int positionX, int positionY) const;

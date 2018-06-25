@@ -48,7 +48,7 @@ Color getPhong(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& in
     // cosinus of the angle between w_i and surface normal
     const float cosTheta_i = w_i ^ hitInfo.normal;
 
-    // if theta_i < 90, then, return 0
+    // if theta_i > 90, then, return 0
     if(cosTheta_i < 0.f)
         return Color::Black();
 
@@ -58,8 +58,9 @@ Color getPhong(const Ray & ray, const HitInfo & hitInfo, const IncidentLight& in
     // cosinus of the angle between perfect reflection direction of wi and wo
     float cosAlfa_r = reflectionDirection ^ w_o;
 
-    if(cosAlfa_r < 0.f)
-        return Color::Black();
+    // TODO: For sphere, following avoids unnecessary lighting.. But why?
+    /*if(cosAlfa_r < 0.f)
+        return Color::Black();*/
     
     // raise to exponent p
     float raisedCosAlfa_r = pow(cosAlfa_r, hitInfo.material.getBRDF().getExponent());
@@ -112,8 +113,8 @@ Color getBlinnPhong(const Ray & ray, const HitInfo & hitInfo, const IncidentLigh
     // cosinus of the angle between half vector and surface normal
     float cosAlfa_h = w_h ^ hitInfo.normal;
 
-    if(cosAlfa_h < 0.f)
-        return Color::Black();
+    /*if(cosAlfa_h < 0.f)
+        return Color::Black();*/
 
     // raise to exponent p
     float raisedCosAlfa_h = pow(cosAlfa_h, material.getBRDF().getExponent());
@@ -176,8 +177,8 @@ Color getTorranceSparrow(const Ray & ray, const HitInfo & hitInfo, const Inciden
     const float cosTheta_i = w_i ^ hitInfo.normal;
 
     // if theta_i < 90, then, return 0
-    if(cosTheta_i < 0.f)
-        return Color::Black();
+    /*if(cosTheta_i < 0.f)
+        return Color::Black();*/
 
     // half vector
     Vector3 w_h = (w_i + w_o).normalize();

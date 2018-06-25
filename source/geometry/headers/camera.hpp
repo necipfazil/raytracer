@@ -12,6 +12,24 @@
 
 class Camera
 {
+    public:
+        enum Handedness
+        {
+            LEFT,
+            RIGHT
+        };
+
+        enum CameraType
+        {
+            SIMPLE,
+            COMPLEX
+        };
+
+        enum GammaCorrection
+        {
+            NONE,
+            SRGB
+        };
     private:
         Position3 position;
         Vector3 gaze;
@@ -44,6 +62,13 @@ class Camera
         float focusDistance;
         float apertureSize;
 
+        GammaCorrection gammaCorrection = NONE;
+
+        Handedness handedness = Handedness::RIGHT;
+
+        float clampValue;
+        bool clampingEnabled = false;
+
         // useful for encapsulating aperture computations
         Position3 getPosition() const;
         Vector3 getToTopLeft() const;
@@ -51,12 +76,6 @@ class Camera
         static float gaussianWeight(float xDistance, float yDistance);
 
     public:
-        enum CameraType
-        {
-            SIMPLE,
-            COMPLEX
-        };
-        
         // getters
         int getImageWidth() const;
         int getImageHeight() const;
@@ -92,7 +111,13 @@ class Camera
         void setGazePoint(const Position3 & gazePoint);
         void setFovY(float fovY);
         void setToneMapping(const ToneMappingParam& toneMappingParam);
+        void setHandedness(Camera::Handedness handedness);
+        void setGammaCorrection(GammaCorrection gammaCorrection);
+        void setClamp(float clampValue) { this->clampValue = clampValue; this->clampingEnabled = true; }
+        float getGammaCorrection() const;
         bool doTonemap() const { return this->doToneMapping; }
+        bool isClampingEnabled() const { return this->clampingEnabled; }
+        float getClampValue() const { return this->clampValue; }
         ToneMappingParam getToneMappingParam() const { return this->toneMappingParam; }
 
         // A method for correcting gaze and up and filling some camera information

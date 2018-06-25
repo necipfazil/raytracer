@@ -5,6 +5,7 @@
 #include "../image/image.hpp"
 #include "../utility/concurrent_bag.hpp"
 #include "../utility/pixel_mission_generator.hpp"
+#include "../utility/random_number_generator.hpp"
 #include <forward_list>
 #include <cmath>
 
@@ -171,12 +172,18 @@ Color Scene::getRefractionColor(const Ray & hittingRay, const HitInfo & hitInfo,
     return color;
 }
 
-Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling) const
+Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulling, bool onlyOpaque) const
 {
+    if(recursionDepth == 0)
+        return Color::Black();
+
     HitInfo hitInfo;
     
-    if( BVH->hit(ray, hitInfo, backfaceCulling) )
+    if( BVH && BVH->hit(ray, hitInfo, backfaceCulling, onlyOpaque) )
     {
+        if(hitInfo.isLight)
+            return hitInfo.lightColor;
+
         Material & material = hitInfo.material;
 
         bool shapeIsFacing = (hitInfo.normal ^ ray.getDirection()) < 0;
@@ -194,19 +201,74 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
             // ambient
             color += getAmbientColor(material, this->ambientLight);
 
-            // diffuse and specular
+            // direct lighting - diffuse and specular
             if(shapeIsFacing)
             {
                 // traverse lights
                 for(int i = 0; i < this->lights.size(); i++)
                 {
                     // get incident light
-                    IncidentLight incidentLight = lights[i]->getIncidentLight(*this, hitInfo.hitPosition, ray.getTimeCreated());
+                    IncidentLight incidentLight = lights[i]->getIncidentLight(*this, hitInfo, ray.getTimeCreated());
 
                     color += hitInfo.material.getBRDF().computeReflectedLight(ray, hitInfo, incidentLight);
                 }
             }
 
+            // indirect lighting - path tracing
+            if(this->integrator != Integrator::DEFAULT && shapeIsFacing)
+            {
+                // decide the random factor
+                RandomFactor randomFactor;
+                switch(this->integrator)
+                {
+                    case Integrator::UNIFORM_PATHTRACING:
+                        randomFactor = RandomFactor::UNIFORM;
+                        break;
+                    case Integrator::IMPORTANCE_PATHTRACING:
+                        randomFactor = RandomFactor::IMPORTANCE;
+                        break;
+                }
+
+                // generate random around normal
+                Vector3 w_i = hitInfo.normal.generateRandomVectorWithinHemisphere(randomFactor);
+
+                // create ray
+                Ray sampleRay = Ray(hitInfo.hitPosition, w_i).translateRayOrigin(getShadowRayEpsilon());
+
+                // get color of sampled ray
+                Color sampleColor = getRayColor(sampleRay, recursionDepth - 1, backfaceCulling, true);
+
+                if(!sampleColor.isBlack())
+                {
+                    // create incident light
+                    IncidentLight incidentLight;
+
+                    incidentLight.intensity = sampleColor.getVector3();
+                    incidentLight.inShadow = false;
+                    incidentLight.hitToLightDirection = w_i;
+
+                    // compute and add the color
+                    Color pathTracedColor = hitInfo.material.getBRDF().computeReflectedLight(sampleRay, hitInfo, incidentLight);
+
+                    // 1 / p(w)
+                    float _1_pw = 1.f;
+
+                    // divide by prop
+                    switch(this->integrator)
+                    {
+                        case Integrator::UNIFORM_PATHTRACING:
+                            _1_pw = 1 / SPHERE_UNIFORM_SAMPLING_PROP;
+                            break;
+                        case Integrator::IMPORTANCE_PATHTRACING:
+                            _1_pw = 1 / SPHERE_UNIFORM_SAMPLING_PROP; // TODO
+                            break;
+                    }
+
+                    color += pathTracedColor.intensify(_1_pw);
+                }
+            }
+            
+           
             // reflection
                 // check if it has mirrorish material 
             if(!material.getMirror().isZeroVector())
@@ -228,10 +290,14 @@ Color Scene::getRayColor(const Ray & ray, int recursionDepth, bool backfaceCulli
             }
         }
 
-        return color;           
+        return color;
     }
     else
     {
-        return this->backgroundColor;
+        if(sphericalEnvLight)
+        {
+            return sphericalEnvLight->getColor(ray.getDirection());
+        }
+        else return this->backgroundColor;
     }
 }
