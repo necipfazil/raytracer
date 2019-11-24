@@ -59,5 +59,3 @@ See more in the blog posts.
 
 ### Acknowledgements
 This project was developed while following the course: [CENG795 Special Topics: Advanced Ray Tracing](https://catalog.metu.edu.tr/course.php?prog=571&course_code=5710795), which was offered by [Assoc.Prof. Ahmet Oguz Akyuz](user.ceng.metu.edu.tr/~akyuz) at [CENG](http://ceng.metu.edu.tr) [METU](http://www.metu.edu.tr).
-
-> ... the thoughest yet the most entertaining course of my BS adventure.
